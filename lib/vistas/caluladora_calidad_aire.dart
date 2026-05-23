@@ -12,56 +12,46 @@ class CalculadoraCalidadAire extends StatefulWidget {
 
 class _CalculadoraCalidadAireState extends State<CalculadoraCalidadAire> {
   final _formKey = GlobalKey<FormState>();
-  Ciudad? _ciudadSeleccionada;
   final CalidadAireServicio _aireApiServicio = CalidadAireServicio();
 
   DateTime _fechaSeleccionada = DateTime.now();
   final _txtHorasExposicion = TextEditingController();
 
-  String _resultado = "";
   final CiudadServicio _ciudadesServicio = CiudadServicio();
   List<Ciudad> _ciudades = [];
+  List<Ciudad> _ciudadesSeleccionadas = [];
+  List<ResultadoCalidad> _resultados = [];
 
-  // Variable de estado para controlar la carga
   bool _cargando = true;
+  bool _calculando = false;
 
-  Future<void> _calcularIndiceExposicion() async {
-    if (_formKey.currentState!.validate()) {
-      setState(() {
-        _resultado = 'Calculando...';
-      });
-      final horas = double.tryParse(_txtHorasExposicion.text);
-      if (_ciudadSeleccionada != null && horas != null) {
-        final pm25 = await _aireApiServicio.obtenerPM25(
-          _ciudadSeleccionada!.latitud,
-          _ciudadSeleccionada!.longitud,
-          _fechaSeleccionada,
-        );
-        if (pm25 == null || pm25 <= 0) {
-          setState(() {
-            _resultado =
-                "No se pudo obtener el dato de PM2.5. Intenta con otra fecha.";
-          });
-          return;
-        }
-
-        final indice = pm25 * horas;
-        String nivel;
-
-        if (indice <= 100) {
-          nivel = "Bajo";
-        } else if (indice <= 200) {
-          nivel = "Moderado";
-        } else {
-          nivel = "Alto";
-        }
-
-        setState(() {
-          _resultado =
-              "Índice de Exposición: ${indice.toStringAsFixed(2)} - Riesgo: $nivel";
-        });
-      }
+  Future<void> _calcularSimultaneo() async {
+    if (!_formKey.currentState!.validate()) return;
+    if (_ciudadesSeleccionadas.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Seleccione al menos una ciudad")),
+      );
+      return;
     }
+
+    final horas = double.tryParse(_txtHorasExposicion.text);
+    if (horas == null) return;
+
+    setState(() {
+      _calculando = true;
+      _resultados = [];
+    });
+
+    final resultados = await _aireApiServicio.obtenerPM25Simultaneo(
+      _ciudadesSeleccionadas,
+      _fechaSeleccionada,
+      horas,
+    );
+
+    setState(() {
+      _resultados = resultados;
+      _calculando = false;
+    });
   }
 
   Future<void> _cargarCiudades() async {
@@ -74,8 +64,110 @@ class _CalculadoraCalidadAireState extends State<CalculadoraCalidadAire> {
     } catch (e) {
       setState(() {
         _cargando = false;
-        _resultado = 'Error al cargar los datos. Revisa el archivo JSON.';
       });
+    }
+  }
+
+  void _mostrarSelectorCiudades() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        final seleccionTemporal = List<Ciudad>.from(_ciudadesSeleccionadas);
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text("Seleccionar ciudades"),
+                  TextButton(
+                    onPressed: () {
+                      if (seleccionTemporal.length == _ciudades.length) {
+                        setDialogState(() => seleccionTemporal.clear());
+                      } else {
+                        setDialogState(() {
+                          seleccionTemporal.clear();
+                          seleccionTemporal.addAll(_ciudades);
+                        });
+                      }
+                    },
+                    child: Text(
+                      seleccionTemporal.length == _ciudades.length
+                          ? "Ninguna"
+                          : "Todas",
+                    ),
+                  ),
+                ],
+              ),
+              content: SizedBox(
+                width: double.maxFinite,
+                height: 400,
+                child: ListView.builder(
+                  itemCount: _ciudades.length,
+                  itemBuilder: (context, index) {
+                    final ciudad = _ciudades[index];
+                    final seleccionada = seleccionTemporal.contains(ciudad);
+                    return CheckboxListTile(
+                      title: Text(ciudad.nombre),
+                      value: seleccionada,
+                      onChanged: (valor) {
+                        setDialogState(() {
+                          if (valor == true) {
+                            seleccionTemporal.add(ciudad);
+                          } else {
+                            seleccionTemporal.remove(ciudad);
+                          }
+                        });
+                      },
+                    );
+                  },
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("Cancelar"),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    setState(() {
+                      _ciudadesSeleccionadas = seleccionTemporal;
+                    });
+                    Navigator.pop(context);
+                  },
+                  child: Text("Aceptar (${seleccionTemporal.length})"),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Color _colorPorNivel(String nivel) {
+    switch (nivel) {
+      case "Bajo":
+        return Colors.green;
+      case "Moderado":
+        return Colors.orange;
+      case "Alto":
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  IconData _iconoPorNivel(String nivel) {
+    switch (nivel) {
+      case "Bajo":
+        return Icons.check_circle;
+      case "Moderado":
+        return Icons.warning;
+      case "Alto":
+        return Icons.dangerous;
+      default:
+        return Icons.help_outline;
     }
   }
 
@@ -101,33 +193,59 @@ class _CalculadoraCalidadAireState extends State<CalculadoraCalidadAire> {
         ),
       ),
       body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
         child: Form(
           key: _formKey,
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               if (_cargando)
                 const Center(child: CircularProgressIndicator())
-              else
-                DropdownButtonFormField<Ciudad>(
-                  decoration: const InputDecoration(
-                    labelText: "Ciudad",
-                    hintText: "Elija la ciudad de Colombia",
-                    border: OutlineInputBorder(),
+              else ...[
+                InkWell(
+                  onTap: _mostrarSelectorCiudades,
+                  child: InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: "Ciudades",
+                      hintText: "Toque para seleccionar ciudades",
+                      border: OutlineInputBorder(),
+                      suffixIcon: Icon(Icons.arrow_drop_down),
+                    ),
+                    child: Text(
+                      _ciudadesSeleccionadas.isEmpty
+                          ? "Seleccione una o más ciudades"
+                          : "${_ciudadesSeleccionadas.length} ciudad(es) seleccionada(s)",
+                      style: TextStyle(
+                        color: _ciudadesSeleccionadas.isEmpty
+                            ? Colors.grey
+                            : Colors.black87,
+                      ),
+                    ),
                   ),
-                  items: _ciudades.map((ciudad) {
-                    return DropdownMenuItem<Ciudad>(
-                      value: ciudad,
-                      child: Text(ciudad.nombre),
-                    );
-                  }).toList(),
-                  onChanged: (Ciudad? ciudad) {
-                    setState(() {
-                      _ciudadSeleccionada = ciudad;
-                    });
-                  },
-                  validator: (ciudad) =>
-                      ciudad == null ? "Debe seleccionar la ciudad" : null,
                 ),
+                if (_ciudadesSeleccionadas.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: _ciudadesSeleccionadas.map((ciudad) {
+                        return Chip(
+                          label: Text(
+                            ciudad.nombre,
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                          deleteIcon: const Icon(Icons.close, size: 16),
+                          onDeleted: () {
+                            setState(() {
+                              _ciudadesSeleccionadas.remove(ciudad);
+                            });
+                          },
+                        );
+                      }).toList(),
+                    ),
+                  ),
+              ],
               const SizedBox(height: 16),
               Row(
                 children: [
@@ -161,13 +279,13 @@ class _CalculadoraCalidadAireState extends State<CalculadoraCalidadAire> {
               TextFormField(
                 controller: _txtHorasExposicion,
                 decoration: const InputDecoration(
-                  labelText: "Horas de exposicion al aire libre por dia",
+                  labelText: "Horas de exposición al aire libre por día",
                   border: OutlineInputBorder(),
                 ),
                 keyboardType: TextInputType.number,
                 validator: (valor) {
                   if (valor == null || valor.isEmpty) {
-                    return "Ingrese las horas de exposicion";
+                    return "Ingrese las horas de exposición";
                   }
                   if (double.tryParse(valor) == null) {
                     return "Ingrese un número válido";
@@ -176,12 +294,78 @@ class _CalculadoraCalidadAireState extends State<CalculadoraCalidadAire> {
                 },
               ),
               const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: _calcularIndiceExposicion,
-                child: const Text("Calcular Riesgo de Exposición"),
+              ElevatedButton.icon(
+                onPressed: _calculando ? null : _calcularSimultaneo,
+                icon: _calculando
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.compare_arrows),
+                label: Text(
+                  _calculando
+                      ? "Consultando ${_ciudadesSeleccionadas.length} ciudad(es)..."
+                      : "Calcular Simultáneamente",
+                ),
               ),
-              const SizedBox(height: 16),
-              Text(_resultado, textAlign: TextAlign.center),
+              const SizedBox(height: 24),
+              if (_resultados.isNotEmpty) ...[
+                Text(
+                  "Resultados - ${_resultados.length} ciudad(es)",
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ..._resultados.map((r) {
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    elevation: 2,
+                    child: ListTile(
+                      leading: Icon(
+                        _iconoPorNivel(r.nivel),
+                        color: _colorPorNivel(r.nivel),
+                        size: 32,
+                      ),
+                      title: Text(
+                        r.ciudad.nombre,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      subtitle: r.indice != null
+                          ? Text(
+                              "PM2.5: ${r.pm25!.toStringAsFixed(2)} · "
+                              "Índice: ${r.indice!.toStringAsFixed(2)}",
+                            )
+                          : const Text("Sin datos disponibles"),
+                      trailing: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _colorPorNivel(r.nivel).withAlpha(30),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: _colorPorNivel(r.nivel),
+                          ),
+                        ),
+                        child: Text(
+                          r.nivel,
+                          style: TextStyle(
+                            color: _colorPorNivel(r.nivel),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+              ],
             ],
           ),
         ),
