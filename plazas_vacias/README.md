@@ -11,13 +11,18 @@ vacías en el departamento de Antioquia.
 
 ## Uso
 
+### Reporte rápido
 ```bash
-# Generar reporte con nombre automático (Reporte_Plazas_Vacias_YYYY-MM-DD.xlsx)
 python procesar_planta.py archivo_descargado.xlsx
-
-# Especificar nombre del archivo de salida
-python procesar_planta.py archivo_descargado.xlsx reporte_salida.xlsx
 ```
+
+### Excel Maestro (con Dashboard, hojas separadas por tipo, análisis por I.E.)
+```bash
+python generar_excel_maestro.py archivo_descargado.xlsx Excel_Maestro.xlsx
+```
+
+### Con Power Query en Microsoft 365 (actualización automática)
+Ver la guía completa en [`GUIA_MICROSOFT_365.md`](GUIA_MICROSOFT_365.md).
 
 ## ¿Qué hace?
 
@@ -52,11 +57,26 @@ python procesar_planta.py archivo_descargado.xlsx reporte_salida.xlsx
   Periodo de Prueba en otra entidad, Sanción, Situación Laboral
   Remunerada (Tutor PTA), entre otros.
 
+## Archivos del proyecto
+
+| Archivo | Descripción |
+|---------|-------------|
+| `procesar_planta.py` | Script de reporte rápido |
+| `generar_excel_maestro.py` | Generador del Excel maestro completo |
+| `powerquery_plazas_vacias.pq` | Código Power Query para Excel 365 |
+| `powerquery_resumen.pq` | Código Power Query para resumen por subregión |
+| `GUIA_MICROSOFT_365.md` | Guía paso a paso para configurar en Microsoft 365 |
+| `requirements.txt` | Dependencias Python |
+
 ## Flujo de actualización
 
 ```
-Plataforma MEN → Descargar Excel → Ejecutar script → Reporte actualizado
+Plataforma MEN → Descargar Excel → Ejecutar script → Excel Maestro → OneDrive/SharePoint
 ```
 
-Cada vez que se descargue un nuevo archivo de la plataforma, ejecutar el
-script con el archivo como argumento para obtener el reporte actualizado.
+Cada vez que se descargue un nuevo archivo de la plataforma, ejecutar
+`generar_excel_maestro.py` y subir el resultado a la nube corporativa.
+
+Alternativamente, configurar Power Query en el Excel maestro para que se
+actualice automáticamente al reemplazar el archivo fuente en OneDrive
+(ver `GUIA_MICROSOFT_365.md`).
