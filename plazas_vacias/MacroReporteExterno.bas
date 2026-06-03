@@ -105,6 +105,38 @@ Private Function ObtenerRutaFuente() As String
     ObtenerRutaFuente = Trim(CStr(wsConfig.Range("B2").Value))
 End Function
 
+' ----------------------------------------------------------------
+' Extraer solo el nombre del archivo de una ruta completa
+' ----------------------------------------------------------------
+Private Function ExtraerNombreArchivo(ByVal ruta As String) As String
+    Dim pos As Long
+    pos = InStrRev(ruta, "\")
+    If pos = 0 Then pos = InStrRev(ruta, "/")
+    If pos > 0 Then
+        ExtraerNombreArchivo = Mid(ruta, pos + 1)
+    Else
+        ExtraerNombreArchivo = ruta
+    End If
+End Function
+
+' ----------------------------------------------------------------
+' Buscar si el archivo ya esta abierto en Excel
+' ----------------------------------------------------------------
+Private Function BuscarLibroAbierto(ByVal nombreArchivo As String) As Workbook
+    Dim wb As Workbook
+    
+    On Error Resume Next
+    For Each wb In Workbooks
+        If LCase(wb.Name) = LCase(nombreArchivo) Then
+            Set BuscarLibroAbierto = wb
+            Exit Function
+        End If
+    Next wb
+    On Error GoTo 0
+    
+    Set BuscarLibroAbierto = Nothing
+End Function
+
 ' ================================================================
 ' MACRO PRINCIPAL — Ejecutar con el boton
 ' ================================================================
@@ -126,40 +158,80 @@ Public Sub GenerarReportePlazasVacantes()
         Exit Sub
     End If
     
-    ' Verificar que el archivo existe
-    If Dir(rutaFuente) = "" Then
-        ' Intentar si es ruta de SharePoint/OneDrive
-        ' Las rutas de SharePoint a veces no funcionan con Dir()
-        ' Intentaremos abrirlo directamente
+    ' Verificar que el archivo existe (solo para rutas locales)
+    Dim archivoExiste As Boolean
+    archivoExiste = False
+    
+    On Error Resume Next
+    If Dir(rutaFuente) <> "" Then archivoExiste = True
+    On Error GoTo ErrorHandler
+    
+    If Not archivoExiste Then
+        ' Puede ser ruta de SharePoint - intentaremos abrirlo
+        ' Pero primero verificar si no hay un problema obvio de ruta
+        If InStr(rutaFuente, ".") = 0 Then
+            MsgBox "La ruta en B2 no parece incluir el nombre del archivo con su extension (.xlsx)." & vbCrLf & vbCrLf & _
+                   "Ruta actual: " & rutaFuente & vbCrLf & vbCrLf & _
+                   "La ruta debe terminar en .xlsx (ejemplo: C:\Carpeta\archivo.xlsx)", _
+                   vbExclamation, "Ruta incompleta"
+            Exit Sub
+        End If
     End If
     
     ' ----------------------------------------------------------
-    ' 1. Abrir archivo fuente en modo solo lectura
+    ' 1. Obtener referencia al archivo fuente
     ' ----------------------------------------------------------
     Application.ScreenUpdating = False
     Application.Calculation = xlCalculationManual
     
     Dim wbFuente As Workbook
     Dim wsOrigen As Worksheet
+    Dim yaEstabAbierto As Boolean
+    Dim nombreArchivo As String
+    Dim errNum As Long
+    Dim errDesc As String
     
-    Application.StatusBar = "Abriendo archivo fuente (solo lectura)..."
+    yaEstabAbierto = False
+    nombreArchivo = ExtraerNombreArchivo(rutaFuente)
     
-    On Error Resume Next
-    Set wbFuente = Workbooks.Open(Filename:=rutaFuente, ReadOnly:=True, UpdateLinks:=0)
-    On Error GoTo ErrorHandler
+    ' Primero: verificar si el archivo ya esta abierto en Excel
+    Application.StatusBar = "Buscando archivo fuente..."
+    Set wbFuente = BuscarLibroAbierto(nombreArchivo)
     
-    If wbFuente Is Nothing Then
-        Application.ScreenUpdating = True
-        Application.Calculation = xlCalculationAutomatic
-        Application.StatusBar = False
-        MsgBox "No se pudo abrir el archivo fuente." & vbCrLf & vbCrLf & _
-               "Ruta configurada:" & vbCrLf & rutaFuente & vbCrLf & vbCrLf & _
-               "Verifique que:" & vbCrLf & _
-               "- La ruta es correcta" & vbCrLf & _
-               "- El archivo existe en esa ubicacion" & vbCrLf & _
-               "- Tiene acceso al archivo", _
-               vbCritical, "Error al abrir archivo"
-        Exit Sub
+    If Not wbFuente Is Nothing Then
+        ' El archivo ya esta abierto - usar esa referencia
+        yaEstabAbierto = True
+        Application.StatusBar = "Archivo fuente encontrado (ya abierto)..."
+    Else
+        ' Intentar abrir el archivo
+        Application.StatusBar = "Abriendo archivo fuente (solo lectura)..."
+        Application.DisplayAlerts = False
+        
+        On Error Resume Next
+        Set wbFuente = Workbooks.Open( _
+            Filename:=rutaFuente, _
+            ReadOnly:=True, _
+            UpdateLinks:=0, _
+            CorruptLoad:=xlNormalLoad)
+        errNum = Err.Number
+        errDesc = Err.Description
+        On Error GoTo ErrorHandler
+        
+        Application.DisplayAlerts = True
+        
+        If wbFuente Is Nothing Then
+            Application.ScreenUpdating = True
+            Application.Calculation = xlCalculationAutomatic
+            Application.StatusBar = False
+            MsgBox "No se pudo abrir el archivo fuente." & vbCrLf & vbCrLf & _
+                   "Ruta configurada:" & vbCrLf & rutaFuente & vbCrLf & vbCrLf & _
+                   "Error: " & errNum & " - " & errDesc & vbCrLf & vbCrLf & _
+                   "SOLUCION: Abra el archivo '" & nombreArchivo & "' manualmente " & _
+                   "en Excel (doble clic), habilite edicion si lo pide, " & _
+                   "dejelo abierto, y luego presione este boton de nuevo.", _
+                   vbCritical, "Error al abrir archivo"
+            Exit Sub
+        End If
     End If
     
     ' Usar la primera hoja del archivo fuente
@@ -626,9 +698,11 @@ SiguienteFila:
     wsResumen.Columns("A:B").AutoFit
     
     ' ----------------------------------------------------------
-    ' 9. Cerrar archivo fuente SIN guardar cambios
+    ' 9. Cerrar archivo fuente SIN guardar cambios (solo si lo abrimos nosotros)
     ' ----------------------------------------------------------
-    wbFuente.Close SaveChanges:=False
+    If Not yaEstabAbierto Then
+        wbFuente.Close SaveChanges:=False
+    End If
     
     ' ----------------------------------------------------------
     ' 10. Activar hoja de resultados
@@ -652,10 +726,18 @@ SiguienteFila:
     Exit Sub
     
 ErrorHandler:
-    ' Cerrar archivo fuente si quedo abierto
+    ' Capturar error antes de que se pierda
+    Dim finalErrNum As Long
+    Dim finalErrDesc As String
+    finalErrNum = Err.Number
+    finalErrDesc = Err.Description
+    
+    ' Cerrar archivo fuente si quedo abierto (solo si lo abrimos nosotros)
     On Error Resume Next
     If Not wbFuente Is Nothing Then
-        wbFuente.Close SaveChanges:=False
+        If Not yaEstabAbierto Then
+            wbFuente.Close SaveChanges:=False
+        End If
     End If
     On Error GoTo 0
     
@@ -664,13 +746,25 @@ ErrorHandler:
     Application.StatusBar = False
     Application.DisplayAlerts = True
     
-    MsgBox "Ocurrio un error inesperado:" & vbCrLf & vbCrLf & _
-           "Error " & Err.Number & ": " & Err.Description & vbCrLf & vbCrLf & _
-           "Si el error persiste, verifique:" & vbCrLf & _
-           "- Que la ruta del archivo fuente es correcta" & vbCrLf & _
-           "- Que el archivo fuente no esta danado" & vbCrLf & _
-           "- Que tiene permisos de lectura", _
-           vbCritical, "Error"
+    If finalErrNum = 0 And finalErrDesc = "" Then
+        ' Error 0 generalmente significa Vista Protegida
+        MsgBox "El archivo se abrio en Vista Protegida y no se pueden leer los datos." & vbCrLf & vbCrLf & _
+               "SOLUCION:" & vbCrLf & _
+               "1. Abra manualmente el archivo '" & nombreArchivo & "'" & vbCrLf & _
+               "2. Haga clic en 'Habilitar edicion' (barra amarilla arriba)" & vbCrLf & _
+               "3. Deje el archivo abierto" & vbCrLf & _
+               "4. Vuelva a este archivo y presione el boton de nuevo", _
+               vbExclamation, "Vista Protegida"
+    Else
+        MsgBox "Ocurrio un error:" & vbCrLf & vbCrLf & _
+               "Error " & finalErrNum & ": " & finalErrDesc & vbCrLf & vbCrLf & _
+               "SOLUCION:" & vbCrLf & _
+               "1. Abra manualmente el archivo '" & nombreArchivo & "'" & vbCrLf & _
+               "2. Haga clic en 'Habilitar edicion' si aparece" & vbCrLf & _
+               "3. Deje el archivo abierto" & vbCrLf & _
+               "4. Vuelva a este archivo y presione el boton de nuevo", _
+               vbCritical, "Error"
+    End If
 
 Limpiar:
     Application.ScreenUpdating = True
