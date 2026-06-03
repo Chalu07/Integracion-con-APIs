@@ -557,7 +557,8 @@ SiguienteFila:
     ' Filtros automaticos
     wsResultados.Range(wsResultados.Cells(1, 1), wsResultados.Cells(contVacantes + 1, numCols)).AutoFilter
     
-    ' Inmovilizar primera fila
+    ' Inmovilizar primera fila (activar hoja primero para evitar error)
+    wsResultados.Activate
     wsResultados.Rows("2:2").Select
     ActiveWindow.FreezePanes = True
     
