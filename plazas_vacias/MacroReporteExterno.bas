@@ -11,11 +11,14 @@ Attribute VB_Name = "ModuloReporteExterno"
 ' CONFIGURACION: La ruta del archivo fuente se configura en la
 ' hoja "Configuracion" celda B2.
 '
-' Criterio: una plaza esta vacante si el "Estado del nombramiento"
-' NO es "FIRMADO" (es decir: "Seleccionar", "EN PROCESO",
-' "EN FIRMAS", o vacio).
+' CRITERIOS DE FILTRADO (tabla verde, columna Y en adelante):
+' Una plaza se considera VACANTE si cumple CUALQUIERA de estos:
+'   1. "Estado del nombramiento" esta VACIO o dice "Seleccionar"
+'   2. "Vacante tomada por" esta VACIO o contiene "SISTEMA MAESTRO"
 '
-' Solo se incluyen las 9 subregiones oficiales de Antioquia.
+' Adicionalmente:
+'   - Solo se incluyen las 9 subregiones oficiales de Antioquia
+'   - El registro debe tener un numero de PLAZA valido
 ' ================================================================
 
 Option Explicit
@@ -51,6 +54,7 @@ End Function
 
 ' ----------------------------------------------------------------
 ' Buscar columna por nombre de encabezado (fila 1)
+' Busca coincidencia exacta (case-insensitive)
 ' ----------------------------------------------------------------
 Private Function BuscarColumna(ws As Worksheet, ByVal nombreCol As String) As Long
     Dim col As Long
@@ -66,6 +70,25 @@ Private Function BuscarColumna(ws As Worksheet, ByVal nombreCol As String) As Lo
     Next col
     
     BuscarColumna = 0
+End Function
+
+' ----------------------------------------------------------------
+' Buscar columna por coincidencia parcial (contiene el texto)
+' ----------------------------------------------------------------
+Private Function BuscarColumnaContiene(ws As Worksheet, ByVal texto As String) As Long
+    Dim col As Long
+    Dim ultimaCol As Long
+    
+    ultimaCol = ws.Cells(1, ws.Columns.Count).End(xlToLeft).Column
+    
+    For col = 1 To ultimaCol
+        If InStr(1, LCase(Trim(CStr(ws.Cells(1, col).Value))), LCase(Trim(texto)), vbTextCompare) > 0 Then
+            BuscarColumnaContiene = col
+            Exit Function
+        End If
+    Next col
+    
+    BuscarColumnaContiene = 0
 End Function
 
 ' ----------------------------------------------------------------
@@ -167,8 +190,6 @@ Public Sub GenerarReportePlazasVacantes()
     On Error GoTo ErrorHandler
     
     If Not archivoExiste Then
-        ' Puede ser ruta de SharePoint - intentaremos abrirlo
-        ' Pero primero verificar si no hay un problema obvio de ruta
         If InStr(rutaFuente, ".") = 0 Then
             MsgBox "La ruta en B2 no parece incluir el nombre del archivo con su extension (.xlsx)." & vbCrLf & vbCrLf & _
                    "Ruta actual: " & rutaFuente & vbCrLf & vbCrLf & _
@@ -199,7 +220,6 @@ Public Sub GenerarReportePlazasVacantes()
     Set wbFuente = BuscarLibroAbierto(nombreArchivo)
     
     If Not wbFuente Is Nothing Then
-        ' El archivo ya esta abierto - usar esa referencia
         yaEstabAbierto = True
         Application.StatusBar = "Archivo fuente encontrado (ya abierto)..."
     Else
@@ -243,7 +263,7 @@ Public Sub GenerarReportePlazasVacantes()
     ultimaCol = wsOrigen.Cells(1, wsOrigen.Columns.Count).End(xlToLeft).Column
     
     If ultimaFila < 2 Then
-        wbFuente.Close SaveChanges:=False
+        If Not yaEstabAbierto Then wbFuente.Close SaveChanges:=False
         Application.ScreenUpdating = True
         Application.Calculation = xlCalculationAutomatic
         Application.StatusBar = False
@@ -257,6 +277,7 @@ Public Sub GenerarReportePlazasVacantes()
     ' ----------------------------------------------------------
     ' 2. Localizar columnas clave por nombre de encabezado
     ' ----------------------------------------------------------
+    ' --- Tabla azul (columnas A-X): informacion basica de la plaza ---
     Dim colPlaza As Long
     Dim colSubregion As Long
     Dim colMunicipio As Long
@@ -271,31 +292,38 @@ Public Sub GenerarReportePlazasVacantes()
     Dim colFechaRegistro As Long
     Dim colCedulaGenera As Long
     Dim colNombreGenera As Long
-    Dim colActoAdmin As Long
-    Dim colFechaActo As Long
-    Dim colObservacion As Long
+    Dim colActoAdminVacante As Long
+    Dim colFechaActoVacante As Long
+    Dim colObservacionAzul As Long
+    Dim colRegistradaPor As Long
+    
+    ' --- Tabla verde (columnas Y en adelante): gestion de la vacante ---
     Dim colElegibles As Long
     Dim colObsPermanencia As Long
-    Dim colTomadaPor As Long
-    Dim colTomadaPara As Long
-    Dim colEstado As Long
+    Dim colVacanteTomadaPor As Long
+    Dim colVacanteTomadaPara As Long
+    Dim colObservacionVerde As Long
+    Dim colOPEC As Long
+    Dim colPosElegible As Long
     Dim colCedulaSel As Long
     Dim colNombreSel As Long
-    Dim colRegistradaPor As Long
-    Dim colDANE As Long
-    Dim colDANESede As Long
+    Dim colCorreoSel As Long
+    Dim colCelularSel As Long
+    Dim colEstadoNombramiento As Long
+    Dim colActoAdminNombram As Long
+    Dim colFechaActoNombram As Long
+    Dim colNovedadNombram As Long
     
+    ' Buscar columnas tabla azul
     colPlaza = BuscarColumna(wsOrigen, "PLAZA")
-    colSubregion = BuscarColumna(wsOrigen, "Subregi" & ChrW(243) & "n")
+    
+    colSubregion = BuscarColumnaContiene(wsOrigen, "Subregi")
     If colSubregion = 0 Then colSubregion = BuscarColumna(wsOrigen, "Subregion")
-    If colSubregion = 0 Then colSubregion = BuscarColumna(wsOrigen, "SUBREGION")
     
     colMunicipio = BuscarColumna(wsOrigen, "Municipio")
-    If colMunicipio = 0 Then colMunicipio = BuscarColumna(wsOrigen, "MUNICIPIO")
+    If colMunicipio = 0 Then colMunicipio = BuscarColumnaContiene(wsOrigen, "Municipio")
     
-    colEstablecimiento = BuscarColumna(wsOrigen, "Establecimiento educativo")
-    If colEstablecimiento = 0 Then colEstablecimiento = BuscarColumna(wsOrigen, "Establecimiento Educativo")
-    If colEstablecimiento = 0 Then colEstablecimiento = BuscarColumna(wsOrigen, "ESTABLECIMIENTO EDUCATIVO")
+    colEstablecimiento = BuscarColumnaContiene(wsOrigen, "Establecimiento")
     
     colSede = BuscarColumna(wsOrigen, "Sede")
     If colSede = 0 Then colSede = BuscarColumna(wsOrigen, "SEDE")
@@ -303,74 +331,127 @@ Public Sub GenerarReportePlazasVacantes()
     colZona = BuscarColumna(wsOrigen, "Zona")
     If colZona = 0 Then colZona = BuscarColumna(wsOrigen, "ZONA")
     
-    colCargo = BuscarColumna(wsOrigen, "Cargo")
-    If colCargo = 0 Then colCargo = BuscarColumna(wsOrigen, "CARGO")
+    colCargo = BuscarColumnaContiene(wsOrigen, "Cargo de la vacante")
+    If colCargo = 0 Then colCargo = BuscarColumnaContiene(wsOrigen, "Cargo")
     
-    colTipoPlaza = BuscarColumna(wsOrigen, "Tipo de plaza")
-    If colTipoPlaza = 0 Then colTipoPlaza = BuscarColumna(wsOrigen, "TIPO DE PLAZA")
+    colTipoPlaza = BuscarColumnaContiene(wsOrigen, "Tipo de plaza")
     
-    colNivelAcad = BuscarColumna(wsOrigen, "Nivel acad" & ChrW(233) & "mico")
-    If colNivelAcad = 0 Then colNivelAcad = BuscarColumna(wsOrigen, "Nivel academico")
-    If colNivelAcad = 0 Then colNivelAcad = BuscarColumna(wsOrigen, "NIVEL ACADEMICO")
+    colNivelAcad = BuscarColumnaContiene(wsOrigen, "Nivel acad")
     
-    colAreaEduc = BuscarColumna(wsOrigen, ChrW(193) & "rea de conocimiento")
-    If colAreaEduc = 0 Then colAreaEduc = BuscarColumna(wsOrigen, "Area de conocimiento")
-    If colAreaEduc = 0 Then colAreaEduc = BuscarColumna(wsOrigen, "AREA DE CONOCIMIENTO")
+    colAreaEduc = BuscarColumnaContiene(wsOrigen, "rea de conocimiento")
+    If colAreaEduc = 0 Then colAreaEduc = BuscarColumnaContiene(wsOrigen, "Area de conocimiento")
     
-    colMotivo = BuscarColumna(wsOrigen, "Motivo de la vacante")
-    If colMotivo = 0 Then colMotivo = BuscarColumna(wsOrigen, "MOTIVO DE LA VACANTE")
+    colMotivo = BuscarColumnaContiene(wsOrigen, "Motivo de la vacante")
     
-    colFechaRegistro = BuscarColumna(wsOrigen, "Fecha de registro de la vacante")
-    If colFechaRegistro = 0 Then colFechaRegistro = BuscarColumna(wsOrigen, "FECHA DE REGISTRO")
+    colFechaRegistro = BuscarColumnaContiene(wsOrigen, "Fecha de registro de la vacante")
+    If colFechaRegistro = 0 Then colFechaRegistro = BuscarColumnaContiene(wsOrigen, "Fecha de registro")
     
-    colCedulaGenera = BuscarColumna(wsOrigen, "C" & ChrW(233) & "dula de quien genera la vacante")
-    If colCedulaGenera = 0 Then colCedulaGenera = BuscarColumna(wsOrigen, "Cedula de quien genera la vacante")
+    colCedulaGenera = BuscarColumnaContiene(wsOrigen, "dula de qui")
+    If colCedulaGenera = 0 Then colCedulaGenera = BuscarColumnaContiene(wsOrigen, "Cedula de quien genera")
     
-    colNombreGenera = BuscarColumna(wsOrigen, "Nombre de quien genera la vacante")
+    colNombreGenera = BuscarColumnaContiene(wsOrigen, "Nombre de qui")
+    If colNombreGenera = 0 Then colNombreGenera = BuscarColumnaContiene(wsOrigen, "Nombre de quien genera")
     
-    colActoAdmin = BuscarColumna(wsOrigen, "Acto administrativo")
-    If colActoAdmin = 0 Then colActoAdmin = BuscarColumna(wsOrigen, "ACTO ADMINISTRATIVO")
+    colActoAdminVacante = BuscarColumna(wsOrigen, "Acto administrativo de la vacante")
+    If colActoAdminVacante = 0 Then colActoAdminVacante = BuscarColumna(wsOrigen, "Acto administrativo")
     
-    colFechaActo = BuscarColumna(wsOrigen, "Fecha del acto administrativo")
+    colFechaActoVacante = BuscarColumna(wsOrigen, "Fecha del acto administrativo")
     
-    colObservacion = BuscarColumna(wsOrigen, "Observaci" & ChrW(243) & "n")
-    If colObservacion = 0 Then colObservacion = BuscarColumna(wsOrigen, "Observacion")
-    If colObservacion = 0 Then colObservacion = BuscarColumna(wsOrigen, "OBSERVACION")
+    colObservacionAzul = BuscarColumnaContiene(wsOrigen, "Observaci")
+    If colObservacionAzul = 0 Then colObservacionAzul = BuscarColumna(wsOrigen, "Observacion")
     
-    colElegibles = BuscarColumna(wsOrigen, "Elegibles")
-    If colElegibles = 0 Then colElegibles = BuscarColumna(wsOrigen, "ELEGIBLES")
+    colRegistradaPor = BuscarColumnaContiene(wsOrigen, "Vacante temporal registrada por")
+    If colRegistradaPor = 0 Then colRegistradaPor = BuscarColumnaContiene(wsOrigen, "registrada por")
     
-    colObsPermanencia = BuscarColumna(wsOrigen, "Observaci" & ChrW(243) & "n permanencia")
-    If colObsPermanencia = 0 Then colObsPermanencia = BuscarColumna(wsOrigen, "Observacion permanencia")
+    ' Buscar columnas tabla verde (columna Y en adelante)
+    colElegibles = BuscarColumnaContiene(wsOrigen, "Tiene lista de Elegibles")
+    If colElegibles = 0 Then colElegibles = BuscarColumnaContiene(wsOrigen, "Elegibles")
     
-    colTomadaPor = BuscarColumna(wsOrigen, "Tomada por")
-    If colTomadaPor = 0 Then colTomadaPor = BuscarColumna(wsOrigen, "TOMADA POR")
+    colObsPermanencia = BuscarColumnaContiene(wsOrigen, "Permanencia")
     
-    colTomadaPara = BuscarColumna(wsOrigen, "Tomada para")
-    If colTomadaPara = 0 Then colTomadaPara = BuscarColumna(wsOrigen, "TOMADA PARA")
+    colVacanteTomadaPor = BuscarColumna(wsOrigen, "Vacante tomada por")
+    If colVacanteTomadaPor = 0 Then colVacanteTomadaPor = BuscarColumnaContiene(wsOrigen, "Vacante tomada por")
     
-    colEstado = BuscarColumna(wsOrigen, "Estado del nombramiento")
-    If colEstado = 0 Then colEstado = BuscarColumna(wsOrigen, "ESTADO DEL NOMBRAMIENTO")
+    colVacanteTomadaPara = BuscarColumna(wsOrigen, "Vacante tomada para")
+    If colVacanteTomadaPara = 0 Then colVacanteTomadaPara = BuscarColumnaContiene(wsOrigen, "Vacante tomada para")
     
-    colCedulaSel = BuscarColumna(wsOrigen, "C" & ChrW(233) & "dula del seleccionado")
-    If colCedulaSel = 0 Then colCedulaSel = BuscarColumna(wsOrigen, "Cedula del seleccionado")
+    ' Observacion verde (col AC) - es diferente a la observacion azul (col W)
+    ' Buscar especificamente en columnas > 24 (despues de X)
+    Dim colTemp As Long
+    colObservacionVerde = 0
+    For colTemp = 25 To ultimaCol
+        Dim headerTemp As String
+        headerTemp = LCase(Trim(CStr(wsOrigen.Cells(1, colTemp).Value)))
+        If Left(headerTemp, 10) = "observaci" & ChrW(243) & "n" Or headerTemp = "observacion" Or Left(headerTemp, 11) = "observaci" & ChrW(243) & "n " Then
+            ' Verificar que no es "Observacion Direccion de Permanencia"
+            If InStr(1, headerTemp, "permanencia", vbTextCompare) = 0 Then
+                colObservacionVerde = colTemp
+                Exit For
+            End If
+        End If
+    Next colTemp
+    
+    colOPEC = BuscarColumna(wsOrigen, "OPEC")
+    
+    colPosElegible = BuscarColumnaContiene(wsOrigen, "Posici")
+    If colPosElegible = 0 Then colPosElegible = BuscarColumnaContiene(wsOrigen, "elegible")
+    
+    ' Cedula del seleccionado (col AF) - es "C?dula" en la tabla verde
+    colCedulaSel = BuscarColumnaContiene(wsOrigen, "dula")
+    ' Puede confundirse con col S "Cedula de quien genera" - buscar en zona verde
+    colCedulaSel = 0
+    For colTemp = 25 To ultimaCol
+        headerTemp = LCase(Trim(CStr(wsOrigen.Cells(1, colTemp).Value)))
+        If InStr(1, headerTemp, "dula", vbTextCompare) > 0 Then
+            If InStr(1, headerTemp, "quien", vbTextCompare) = 0 Then
+                colCedulaSel = colTemp
+                Exit For
+            End If
+        End If
+    Next colTemp
     
     colNombreSel = BuscarColumna(wsOrigen, "Nombre del seleccionado")
+    If colNombreSel = 0 Then colNombreSel = BuscarColumnaContiene(wsOrigen, "Nombre del seleccionado")
     
-    colRegistradaPor = BuscarColumna(wsOrigen, "Registrada por")
-    If colRegistradaPor = 0 Then colRegistradaPor = BuscarColumna(wsOrigen, "REGISTRADA POR")
+    colCorreoSel = 0
+    For colTemp = 25 To ultimaCol
+        headerTemp = LCase(Trim(CStr(wsOrigen.Cells(1, colTemp).Value)))
+        If InStr(1, headerTemp, "correo", vbTextCompare) > 0 Then
+            colCorreoSel = colTemp
+            Exit For
+        End If
+    Next colTemp
     
-    colDANE = BuscarColumna(wsOrigen, "C" & ChrW(243) & "digo DANE")
-    If colDANE = 0 Then colDANE = BuscarColumna(wsOrigen, "Codigo DANE")
-    If colDANE = 0 Then colDANE = BuscarColumna(wsOrigen, "CODIGO DANE")
+    colCelularSel = BuscarColumna(wsOrigen, "Celular")
+    If colCelularSel = 0 Then colCelularSel = BuscarColumnaContiene(wsOrigen, "Celular")
     
-    colDANESede = BuscarColumna(wsOrigen, "C" & ChrW(243) & "digo DANE sede")
-    If colDANESede = 0 Then colDANESede = BuscarColumna(wsOrigen, "Codigo DANE sede")
-    If colDANESede = 0 Then colDANESede = BuscarColumna(wsOrigen, "CODIGO DANE SEDE")
+    colEstadoNombramiento = BuscarColumna(wsOrigen, "Estado del nombramiento")
+    If colEstadoNombramiento = 0 Then colEstadoNombramiento = BuscarColumnaContiene(wsOrigen, "Estado del nombramiento")
+    
+    colActoAdminNombram = 0
+    For colTemp = 25 To ultimaCol
+        headerTemp = LCase(Trim(CStr(wsOrigen.Cells(1, colTemp).Value)))
+        If InStr(1, headerTemp, "acto administrativo", vbTextCompare) > 0 Then
+            colActoAdminNombram = colTemp
+            Exit For
+        End If
+    Next colTemp
+    
+    colFechaActoNombram = 0
+    For colTemp = 25 To ultimaCol
+        headerTemp = LCase(Trim(CStr(wsOrigen.Cells(1, colTemp).Value)))
+        If InStr(1, headerTemp, "fecha", vbTextCompare) > 0 And InStr(1, headerTemp, "acto", vbTextCompare) > 0 Then
+            colFechaActoNombram = colTemp
+            Exit For
+        End If
+    Next colTemp
+    
+    colNovedadNombram = BuscarColumnaContiene(wsOrigen, "Novedad del nombramiento")
+    If colNovedadNombram = 0 Then colNovedadNombram = BuscarColumnaContiene(wsOrigen, "Novedad")
     
     ' Validar columnas criticas
     If colPlaza = 0 Then
-        wbFuente.Close SaveChanges:=False
+        If Not yaEstabAbierto Then wbFuente.Close SaveChanges:=False
         Application.ScreenUpdating = True
         Application.Calculation = xlCalculationAutomatic
         Application.StatusBar = False
@@ -381,19 +462,25 @@ Public Sub GenerarReportePlazasVacantes()
         Exit Sub
     End If
     
-    If colEstado = 0 Then
-        wbFuente.Close SaveChanges:=False
+    If colEstadoNombramiento = 0 And colVacanteTomadaPor = 0 Then
+        If Not yaEstabAbierto Then wbFuente.Close SaveChanges:=False
         Application.ScreenUpdating = True
         Application.Calculation = xlCalculationAutomatic
         Application.StatusBar = False
-        MsgBox "No se encontro la columna 'Estado del nombramiento' en el archivo fuente." & vbCrLf & _
+        MsgBox "No se encontraron las columnas de la tabla verde:" & vbCrLf & _
+               "- 'Estado del nombramiento'" & vbCrLf & _
+               "- 'Vacante tomada por'" & vbCrLf & vbCrLf & _
                "Verifique que el archivo tiene la estructura correcta.", _
-               vbCritical, "Columna no encontrada"
+               vbCritical, "Columnas no encontradas"
         Exit Sub
     End If
     
     ' ----------------------------------------------------------
-    ' 3. Filtrar filas: plazas aun vacantes
+    ' 3. Filtrar filas: plazas aun vacantes (NUEVOS CRITERIOS)
+    ' ----------------------------------------------------------
+    ' Criterio: una plaza se considera VACANTE si:
+    '   - "Estado del nombramiento" esta VACIO o dice "Seleccionar"
+    '   - O "Vacante tomada por" esta VACIO o contiene "SISTEMA MAESTRO"
     ' ----------------------------------------------------------
     Application.StatusBar = "Filtrando plazas vacantes..."
     
@@ -405,16 +492,14 @@ Public Sub GenerarReportePlazasVacantes()
     Dim fila As Long
     Dim valorPlaza As String
     Dim valorEstado As String
+    Dim valorTomadaPor As String
     Dim valorSubregion As String
+    Dim esVacante As Boolean
     
     For fila = 2 To ultimaFila
         ' Saltar filas sin numero de plaza
         valorPlaza = LeerCelda(wsOrigen, fila, colPlaza)
         If valorPlaza = "" Or valorPlaza = "0" Then GoTo SiguienteFila
-        
-        ' Filtrar por estado: excluir las que ya tienen nombramiento FIRMADO
-        valorEstado = UCase(Trim(LeerCelda(wsOrigen, fila, colEstado)))
-        If valorEstado = "FIRMADO" Then GoTo SiguienteFila
         
         ' Filtrar por subregion oficial
         If colSubregion > 0 Then
@@ -424,23 +509,47 @@ Public Sub GenerarReportePlazasVacantes()
             End If
         End If
         
-        ' Esta fila es una plaza vacante
-        contVacantes = contVacantes + 1
-        filasVacantes(contVacantes) = fila
+        ' NUEVOS CRITERIOS DE VACANTE (tabla verde)
+        esVacante = False
+        
+        ' Criterio 1: Estado del nombramiento vacio o "Seleccionar"
+        If colEstadoNombramiento > 0 Then
+            valorEstado = UCase(Trim(LeerCelda(wsOrigen, fila, colEstadoNombramiento)))
+            If valorEstado = "" Or valorEstado = "SELECCIONAR" Then
+                esVacante = True
+            End If
+        End If
+        
+        ' Criterio 2: Vacante tomada por vacio o contiene "SISTEMA MAESTRO"
+        If Not esVacante Then
+            If colVacanteTomadaPor > 0 Then
+                valorTomadaPor = UCase(Trim(LeerCelda(wsOrigen, fila, colVacanteTomadaPor)))
+                If valorTomadaPor = "" Or InStr(1, valorTomadaPor, "SISTEMA MAESTRO", vbTextCompare) > 0 Then
+                    esVacante = True
+                End If
+            End If
+        End If
+        
+        ' Si cumple alguno de los criterios, es vacante
+        If esVacante Then
+            contVacantes = contVacantes + 1
+            filasVacantes(contVacantes) = fila
+        End If
         
 SiguienteFila:
     Next fila
     
     If contVacantes = 0 Then
-        wbFuente.Close SaveChanges:=False
+        If Not yaEstabAbierto Then wbFuente.Close SaveChanges:=False
         Application.ScreenUpdating = True
         Application.Calculation = xlCalculationAutomatic
         Application.StatusBar = False
         MsgBox "No se encontraron plazas vacantes con los criterios aplicados." & vbCrLf & vbCrLf & _
                "Criterios:" & vbCrLf & _
-               "- Estado del nombramiento diferente de 'FIRMADO'" & vbCrLf & _
+               "- Estado del nombramiento: vac" & ChrW(237) & "o o 'Seleccionar'" & vbCrLf & _
+               "- Vacante tomada por: vac" & ChrW(237) & "o o 'SISTEMA MAESTRO'" & vbCrLf & _
                "- Solo subregiones oficiales de Antioquia" & vbCrLf & _
-               "- Plaza con numero valido", _
+               "- Plaza con n" & ChrW(250) & "mero v" & ChrW(225) & "lido", _
                vbInformation, "Sin resultados"
         Exit Sub
     End If
@@ -450,7 +559,6 @@ SiguienteFila:
     ' ----------------------------------------------------------
     Application.StatusBar = "Generando reporte (" & contVacantes & " plazas vacantes)..."
     
-    ' Limpiar hojas existentes o crearlas
     Dim wsResultados As Worksheet
     Dim wsResumen As Worksheet
     
@@ -474,34 +582,70 @@ SiguienteFila:
     ' 5. Escribir encabezados en hoja de resultados
     ' ----------------------------------------------------------
     Dim encabezados As Variant
-    encabezados = Array("PLAZA", "Subregi" & ChrW(243) & "n", "Municipio", _
-                       "Establecimiento educativo", "C" & ChrW(243) & "digo DANE", _
-                       "Sede", "C" & ChrW(243) & "digo DANE sede", "Zona", _
-                       "Cargo", "Tipo de plaza", "Nivel acad" & ChrW(233) & "mico", _
-                       ChrW(193) & "rea de conocimiento", _
-                       "Motivo de la vacante", "Fecha de registro", _
-                       "Acto administrativo", "Fecha acto admin.", _
-                       "Observaci" & ChrW(243) & "n", "Elegibles", _
-                       "Observaci" & ChrW(243) & "n permanencia", _
-                       "Tomada por", "Tomada para", _
-                       "Estado del nombramiento", _
-                       "C" & ChrW(233) & "dula del seleccionado", _
-                       "Nombre del seleccionado", "Registrada por")
+    encabezados = Array( _
+        "PLAZA", _
+        "Subregi" & ChrW(243) & "n", _
+        "Municipio", _
+        "Establecimiento", _
+        "Sede", _
+        "Zona", _
+        "Cargo de la vacante", _
+        "Tipo de plaza", _
+        "Nivel acad" & ChrW(233) & "mico", _
+        "Motivo de la vacante", _
+        "Fecha de registro", _
+        "Acto admin. vacante", _
+        "Fecha acto admin.", _
+        "Observaci" & ChrW(243) & "n (azul)", _
+        "Registrada por", _
+        "Tiene lista Elegibles", _
+        "Obs. Permanencia", _
+        "Vacante tomada por", _
+        "Vacante tomada para", _
+        "Observaci" & ChrW(243) & "n (verde)", _
+        "OPEC", _
+        "Posici" & ChrW(243) & "n elegible", _
+        "C" & ChrW(233) & "dula seleccionado", _
+        "Nombre del seleccionado", _
+        "Correo seleccionado", _
+        "Celular", _
+        "Estado del nombramiento", _
+        "Acto admin. nombramiento", _
+        "Fecha acto nombramiento", _
+        "Novedad del nombramiento")
     
     Dim colsOrigen As Variant
-    colsOrigen = Array(colPlaza, colSubregion, colMunicipio, _
-                       colEstablecimiento, colDANE, _
-                       colSede, colDANESede, colZona, _
-                       colCargo, colTipoPlaza, colNivelAcad, _
-                       colAreaEduc, _
-                       colMotivo, colFechaRegistro, _
-                       colActoAdmin, colFechaActo, _
-                       colObservacion, colElegibles, _
-                       colObsPermanencia, _
-                       colTomadaPor, colTomadaPara, _
-                       colEstado, _
-                       colCedulaSel, _
-                       colNombreSel, colRegistradaPor)
+    colsOrigen = Array( _
+        colPlaza, _
+        colSubregion, _
+        colMunicipio, _
+        colEstablecimiento, _
+        colSede, _
+        colZona, _
+        colCargo, _
+        colTipoPlaza, _
+        colNivelAcad, _
+        colMotivo, _
+        colFechaRegistro, _
+        colActoAdminVacante, _
+        colFechaActoVacante, _
+        colObservacionAzul, _
+        colRegistradaPor, _
+        colElegibles, _
+        colObsPermanencia, _
+        colVacanteTomadaPor, _
+        colVacanteTomadaPara, _
+        colObservacionVerde, _
+        colOPEC, _
+        colPosElegible, _
+        colCedulaSel, _
+        colNombreSel, _
+        colCorreoSel, _
+        colCelularSel, _
+        colEstadoNombramiento, _
+        colActoAdminNombram, _
+        colFechaActoNombram, _
+        colNovedadNombram)
     
     Dim numCols As Long
     numCols = UBound(encabezados) + 1
@@ -515,7 +659,7 @@ SiguienteFila:
     With wsResultados.Range(wsResultados.Cells(1, 1), wsResultados.Cells(1, numCols))
         .Font.Bold = True
         .Font.Color = RGB(255, 255, 255)
-        .Interior.Color = RGB(0, 112, 60)  ' Verde oscuro
+        .Interior.Color = RGB(0, 112, 60)
         .HorizontalAlignment = xlCenter
     End With
     
@@ -535,7 +679,6 @@ SiguienteFila:
             End If
         Next c
         
-        ' Actualizar barra de estado cada 50 filas
         If i Mod 50 = 0 Then
             Application.StatusBar = "Procesando fila " & i & " de " & contVacantes & "..."
         End If
@@ -544,7 +687,6 @@ SiguienteFila:
     ' ----------------------------------------------------------
     ' 7. Formato de la hoja de resultados
     ' ----------------------------------------------------------
-    ' Autoajustar columnas
     wsResultados.Columns.AutoFit
     
     ' Bordes
@@ -557,7 +699,7 @@ SiguienteFila:
     ' Filtros automaticos
     wsResultados.Range(wsResultados.Cells(1, 1), wsResultados.Cells(contVacantes + 1, numCols)).AutoFilter
     
-    ' Inmovilizar primera fila (activar hoja primero para evitar error)
+    ' Inmovilizar primera fila
     wsResultados.Activate
     wsResultados.Rows("2:2").Select
     ActiveWindow.FreezePanes = True
@@ -574,6 +716,8 @@ SiguienteFila:
     ' 8. Crear hoja de resumen
     ' ----------------------------------------------------------
     Application.StatusBar = "Generando resumen..."
+    
+    wsResumen.Activate
     
     ' Titulo
     wsResumen.Range("A1").Value = "REPORTE DE PLAZAS VACANTES"
@@ -638,7 +782,6 @@ SiguienteFila:
     For j = 0 To UBound(subregiones9)
         wsResumen.Cells(filaResumen, 1).Value = subregiones9(j)
         
-        ' Contar plazas de esta subregion
         contSub = 0
         If colSubregion > 0 Then
             For i = 1 To contVacantes
@@ -649,12 +792,25 @@ SiguienteFila:
             Next i
             ' Manejo especial para Uraba y Valle de Aburra (tildes)
             If UCase(CStr(subregiones9(j))) = "URAB" & UCase(ChrW(225)) Then
-                For i = 1 To contVacantes
-                    valorSubregion = UCase(Trim(LeerCelda(wsOrigen, filasVacantes(i), colSubregion)))
-                    If InStr(1, valorSubregion, "URABA", vbTextCompare) > 0 And contSub = 0 Then
-                        contSub = contSub + 1
-                    End If
-                Next i
+                If contSub = 0 Then
+                    For i = 1 To contVacantes
+                        valorSubregion = UCase(Trim(LeerCelda(wsOrigen, filasVacantes(i), colSubregion)))
+                        If InStr(1, valorSubregion, "URABA", vbTextCompare) > 0 Then
+                            contSub = contSub + 1
+                        End If
+                    Next i
+                End If
+            End If
+            If UCase(CStr(subregiones9(j))) = "VALLE DE ABURR" & UCase(ChrW(225)) Then
+                If contSub = 0 Then
+                    For i = 1 To contVacantes
+                        valorSubregion = UCase(Trim(LeerCelda(wsOrigen, filasVacantes(i), colSubregion)))
+                        If InStr(1, valorSubregion, "ABURRA", vbTextCompare) > 0 Or _
+                           InStr(1, valorSubregion, "ABURR", vbTextCompare) > 0 Then
+                            contSub = contSub + 1
+                        End If
+                    Next i
+                End If
             End If
         End If
         
@@ -682,24 +838,33 @@ SiguienteFila:
     
     ' Criterios utilizados
     filaResumen = filaResumen + 2
-    wsResumen.Cells(filaResumen, 1).Value = "CRITERIOS DE FILTRADO"
+    wsResumen.Cells(filaResumen, 1).Value = "CRITERIOS DE FILTRADO (tabla verde)"
     wsResumen.Cells(filaResumen, 1).Font.Bold = True
     wsResumen.Cells(filaResumen, 1).Font.Size = 13
     
     filaResumen = filaResumen + 1
-    wsResumen.Cells(filaResumen, 1).Value = "1. Estado del nombramiento diferente de 'FIRMADO'"
+    wsResumen.Cells(filaResumen, 1).Value = "Se considera VACANTE si cumple CUALQUIERA de estos criterios:"
+    wsResumen.Cells(filaResumen, 1).Font.Italic = True
+    
     filaResumen = filaResumen + 1
-    wsResumen.Cells(filaResumen, 1).Value = "   (incluye: Seleccionar, EN PROCESO, EN FIRMAS, vac" & ChrW(237) & "o)"
+    wsResumen.Cells(filaResumen, 1).Value = "1. 'Estado del nombramiento' est" & ChrW(225) & " vac" & ChrW(237) & "o o dice 'Seleccionar'"
     filaResumen = filaResumen + 1
-    wsResumen.Cells(filaResumen, 1).Value = "2. Solo las 9 subregiones oficiales de Antioquia"
+    wsResumen.Cells(filaResumen, 1).Value = "2. 'Vacante tomada por' est" & ChrW(225) & " vac" & ChrW(237) & "o o contiene 'SISTEMA MAESTRO'"
     filaResumen = filaResumen + 1
-    wsResumen.Cells(filaResumen, 1).Value = "3. Registros con n" & ChrW(250) & "mero de PLAZA v" & ChrW(225) & "lido (no vac" & ChrW(237) & "o ni 0)"
+    wsResumen.Cells(filaResumen, 1).Value = ""
+    filaResumen = filaResumen + 1
+    wsResumen.Cells(filaResumen, 1).Value = "Filtros adicionales:"
+    wsResumen.Cells(filaResumen, 1).Font.Bold = True
+    filaResumen = filaResumen + 1
+    wsResumen.Cells(filaResumen, 1).Value = "3. Solo las 9 subregiones oficiales de Antioquia"
+    filaResumen = filaResumen + 1
+    wsResumen.Cells(filaResumen, 1).Value = "4. Registros con n" & ChrW(250) & "mero de PLAZA v" & ChrW(225) & "lido (no vac" & ChrW(237) & "o ni 0)"
     
     ' Autoajustar
     wsResumen.Columns("A:B").AutoFit
     
     ' ----------------------------------------------------------
-    ' 9. Cerrar archivo fuente SIN guardar cambios (solo si lo abrimos nosotros)
+    ' 9. Cerrar archivo fuente SIN guardar cambios
     ' ----------------------------------------------------------
     If Not yaEstabAbierto Then
         wbFuente.Close SaveChanges:=False
@@ -719,21 +884,22 @@ SiguienteFila:
     MsgBox "Reporte generado exitosamente." & vbCrLf & vbCrLf & _
            "Plazas vacantes encontradas: " & contVacantes & vbCrLf & vbCrLf & _
            "Los resultados estan en las hojas:" & vbCrLf & _
-           "- 'Plazas Vacantes': listado completo" & vbCrLf & _
+           "- 'Plazas Vacantes': listado completo con 30 columnas" & vbCrLf & _
            "- 'Resumen': totales por subregion" & vbCrLf & vbCrLf & _
+           "Criterios usados:" & vbCrLf & _
+           "- Estado del nombramiento vac" & ChrW(237) & "o o 'Seleccionar'" & vbCrLf & _
+           "- Vacante tomada por vac" & ChrW(237) & "o o 'SISTEMA MAESTRO'" & vbCrLf & vbCrLf & _
            "Recuerde guardar este archivo si desea conservar los resultados.", _
            vbInformation, "Reporte completado"
     
     Exit Sub
     
 ErrorHandler:
-    ' Capturar error antes de que se pierda
     Dim finalErrNum As Long
     Dim finalErrDesc As String
     finalErrNum = Err.Number
     finalErrDesc = Err.Description
     
-    ' Cerrar archivo fuente si quedo abierto (solo si lo abrimos nosotros)
     On Error Resume Next
     If Not wbFuente Is Nothing Then
         If Not yaEstabAbierto Then
@@ -748,7 +914,6 @@ ErrorHandler:
     Application.DisplayAlerts = True
     
     If finalErrNum = 0 And finalErrDesc = "" Then
-        ' Error 0 generalmente significa Vista Protegida
         MsgBox "El archivo se abrio en Vista Protegida y no se pueden leer los datos." & vbCrLf & vbCrLf & _
                "SOLUCION:" & vbCrLf & _
                "1. Abra manualmente el archivo '" & nombreArchivo & "'" & vbCrLf & _
