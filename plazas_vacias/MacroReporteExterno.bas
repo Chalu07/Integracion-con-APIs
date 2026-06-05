@@ -11,6 +11,11 @@ Attribute VB_Name = "ModuloReporteExterno"
 ' CONFIGURACION: La ruta del archivo fuente se configura en la
 ' hoja "Configuracion" celda B2.
 '
+' FILTRO DE FECHAS: Al presionar el boton, se solicita una fecha
+' inicial y una fecha final. Solo se incluyen las plazas cuya
+' "Fecha de registro de la vacante definitiva" este dentro del rango.
+' Si se dejan vacias, se traen TODAS las plazas sin filtro de fecha.
+'
 ' CRITERIOS DE FILTRADO (tabla verde, columna Y en adelante):
 ' Una plaza se considera VACANTE si cumple CUALQUIERA de estos:
 '   1. "Estado del nombramiento" esta VACIO o dice "Seleccionar"
@@ -160,6 +165,97 @@ Private Function BuscarLibroAbierto(ByVal nombreArchivo As String) As Workbook
     Set BuscarLibroAbierto = Nothing
 End Function
 
+' ----------------------------------------------------------------
+' Solicitar rango de fechas al usuario
+' Retorna True si el usuario confirmo, False si cancelo
+' ----------------------------------------------------------------
+Private Function PedirRangoFechas(ByRef fechaInicio As Date, ByRef fechaFin As Date, ByRef usarFiltroFecha As Boolean) As Boolean
+    Dim respuesta As VbMsgBoxResult
+    Dim inputInicio As String
+    Dim inputFin As String
+    
+    ' Preguntar si quiere filtrar por fechas
+    respuesta = MsgBox("Desea filtrar las plazas vacantes por rango de fechas?" & vbCrLf & vbCrLf & _
+                       "SI: Elegir fecha inicial y final" & vbCrLf & _
+                       "NO: Traer TODAS las plazas vacantes sin filtro de fecha" & vbCrLf & vbCrLf & _
+                       "CANCELAR: No ejecutar la macro", _
+                       vbYesNoCancel + vbQuestion, "Filtro de Fechas")
+    
+    If respuesta = vbCancel Then
+        PedirRangoFechas = False
+        Exit Function
+    End If
+    
+    If respuesta = vbNo Then
+        usarFiltroFecha = False
+        PedirRangoFechas = True
+        Exit Function
+    End If
+    
+    ' El usuario quiere filtrar por fechas
+    usarFiltroFecha = True
+    
+    ' Pedir fecha inicial
+    inputInicio = InputBox("Escriba la FECHA INICIAL del rango:" & vbCrLf & vbCrLf & _
+                           "Formato: dd/mm/aaaa" & vbCrLf & _
+                           "Ejemplo: 01/01/2026" & vbCrLf & vbCrLf & _
+                           "Solo se incluir" & ChrW(225) & "n plazas registradas" & vbCrLf & _
+                           "desde esta fecha en adelante.", _
+                           "Fecha Inicial", Format(DateSerial(Year(Now), Month(Now), 1), "dd/mm/yyyy"))
+    
+    If inputInicio = "" Then
+        PedirRangoFechas = False
+        Exit Function
+    End If
+    
+    ' Validar fecha inicial
+    If Not IsDate(inputInicio) Then
+        MsgBox "La fecha inicial '" & inputInicio & "' no es v" & ChrW(225) & "lida." & vbCrLf & vbCrLf & _
+               "Use el formato dd/mm/aaaa (ejemplo: 01/01/2026)", _
+               vbExclamation, "Fecha no v" & ChrW(225) & "lida"
+        PedirRangoFechas = False
+        Exit Function
+    End If
+    
+    fechaInicio = CDate(inputInicio)
+    
+    ' Pedir fecha final
+    inputFin = InputBox("Escriba la FECHA FINAL del rango:" & vbCrLf & vbCrLf & _
+                        "Formato: dd/mm/aaaa" & vbCrLf & _
+                        "Ejemplo: 31/01/2026" & vbCrLf & vbCrLf & _
+                        "Solo se incluir" & ChrW(225) & "n plazas registradas" & vbCrLf & _
+                        "hasta esta fecha.", _
+                        "Fecha Final", Format(Now, "dd/mm/yyyy"))
+    
+    If inputFin = "" Then
+        PedirRangoFechas = False
+        Exit Function
+    End If
+    
+    ' Validar fecha final
+    If Not IsDate(inputFin) Then
+        MsgBox "La fecha final '" & inputFin & "' no es v" & ChrW(225) & "lida." & vbCrLf & vbCrLf & _
+               "Use el formato dd/mm/aaaa (ejemplo: 31/01/2026)", _
+               vbExclamation, "Fecha no v" & ChrW(225) & "lida"
+        PedirRangoFechas = False
+        Exit Function
+    End If
+    
+    fechaFin = CDate(inputFin)
+    
+    ' Validar que fecha inicio <= fecha fin
+    If fechaInicio > fechaFin Then
+        MsgBox "La fecha inicial (" & Format(fechaInicio, "dd/mm/yyyy") & ") es posterior " & _
+               "a la fecha final (" & Format(fechaFin, "dd/mm/yyyy") & ")." & vbCrLf & vbCrLf & _
+               "La fecha inicial debe ser anterior o igual a la fecha final.", _
+               vbExclamation, "Rango inv" & ChrW(225) & "lido"
+        PedirRangoFechas = False
+        Exit Function
+    End If
+    
+    PedirRangoFechas = True
+End Function
+
 ' ================================================================
 ' MACRO PRINCIPAL — Ejecutar con el boton
 ' ================================================================
@@ -168,7 +264,19 @@ Public Sub GenerarReportePlazasVacantes()
     On Error GoTo ErrorHandler
     
     ' ----------------------------------------------------------
-    ' 0. Obtener ruta del archivo fuente
+    ' 0. Solicitar rango de fechas ANTES de abrir el archivo
+    ' ----------------------------------------------------------
+    Dim fechaInicio As Date
+    Dim fechaFin As Date
+    Dim usarFiltroFecha As Boolean
+    usarFiltroFecha = False
+    
+    If Not PedirRangoFechas(fechaInicio, fechaFin, usarFiltroFecha) Then
+        Exit Sub
+    End If
+    
+    ' ----------------------------------------------------------
+    ' 1. Obtener ruta del archivo fuente
     ' ----------------------------------------------------------
     Dim rutaFuente As String
     rutaFuente = ObtenerRutaFuente()
@@ -200,7 +308,7 @@ Public Sub GenerarReportePlazasVacantes()
     End If
     
     ' ----------------------------------------------------------
-    ' 1. Obtener referencia al archivo fuente
+    ' 2. Obtener referencia al archivo fuente
     ' ----------------------------------------------------------
     Application.ScreenUpdating = False
     Application.Calculation = xlCalculationManual
@@ -275,7 +383,7 @@ Public Sub GenerarReportePlazasVacantes()
     Application.StatusBar = "Localizando columnas..."
     
     ' ----------------------------------------------------------
-    ' 2. Localizar columnas clave por nombre de encabezado
+    ' 3. Localizar columnas clave por nombre de encabezado
     ' ----------------------------------------------------------
     ' --- Tabla azul (columnas A-X): informacion basica de la plaza ---
     Dim colPlaza As Long
@@ -375,15 +483,13 @@ Public Sub GenerarReportePlazasVacantes()
     colVacanteTomadaPara = BuscarColumna(wsOrigen, "Vacante tomada para")
     If colVacanteTomadaPara = 0 Then colVacanteTomadaPara = BuscarColumnaContiene(wsOrigen, "Vacante tomada para")
     
-    ' Observacion verde (col AC) - es diferente a la observacion azul (col W)
-    ' Buscar especificamente en columnas > 24 (despues de X)
+    ' Observacion verde (col AC) - buscar en columnas > 24
     Dim colTemp As Long
+    Dim headerTemp As String
     colObservacionVerde = 0
     For colTemp = 25 To ultimaCol
-        Dim headerTemp As String
         headerTemp = LCase(Trim(CStr(wsOrigen.Cells(1, colTemp).Value)))
         If Left(headerTemp, 10) = "observaci" & ChrW(243) & "n" Or headerTemp = "observacion" Or Left(headerTemp, 11) = "observaci" & ChrW(243) & "n " Then
-            ' Verificar que no es "Observacion Direccion de Permanencia"
             If InStr(1, headerTemp, "permanencia", vbTextCompare) = 0 Then
                 colObservacionVerde = colTemp
                 Exit For
@@ -396,9 +502,7 @@ Public Sub GenerarReportePlazasVacantes()
     colPosElegible = BuscarColumnaContiene(wsOrigen, "Posici")
     If colPosElegible = 0 Then colPosElegible = BuscarColumnaContiene(wsOrigen, "elegible")
     
-    ' Cedula del seleccionado (col AF) - es "C?dula" en la tabla verde
-    colCedulaSel = BuscarColumnaContiene(wsOrigen, "dula")
-    ' Puede confundirse con col S "Cedula de quien genera" - buscar en zona verde
+    ' Cedula del seleccionado - buscar en zona verde (col > 24)
     colCedulaSel = 0
     For colTemp = 25 To ultimaCol
         headerTemp = LCase(Trim(CStr(wsOrigen.Cells(1, colTemp).Value)))
@@ -475,12 +579,25 @@ Public Sub GenerarReportePlazasVacantes()
         Exit Sub
     End If
     
+    ' Advertir si no se encontro columna de fecha y se pidio filtro
+    If usarFiltroFecha And colFechaRegistro = 0 Then
+        Dim respFecha As VbMsgBoxResult
+        respFecha = MsgBox("No se encontr" & ChrW(243) & " la columna 'Fecha de registro de la vacante' en el archivo." & vbCrLf & vbCrLf & _
+                           "No se puede aplicar el filtro de fechas." & vbCrLf & vbCrLf & _
+                           "Desea continuar SIN filtro de fecha (traer todas)?", _
+                           vbYesNo + vbExclamation, "Columna de fecha no encontrada")
+        If respFecha = vbNo Then
+            If Not yaEstabAbierto Then wbFuente.Close SaveChanges:=False
+            Application.ScreenUpdating = True
+            Application.Calculation = xlCalculationAutomatic
+            Application.StatusBar = False
+            Exit Sub
+        End If
+        usarFiltroFecha = False
+    End If
+    
     ' ----------------------------------------------------------
-    ' 3. Filtrar filas: plazas aun vacantes (NUEVOS CRITERIOS)
-    ' ----------------------------------------------------------
-    ' Criterio: una plaza se considera VACANTE si:
-    '   - "Estado del nombramiento" esta VACIO o dice "Seleccionar"
-    '   - O "Vacante tomada por" esta VACIO o contiene "SISTEMA MAESTRO"
+    ' 4. Filtrar filas: plazas aun vacantes (con filtro de fecha)
     ' ----------------------------------------------------------
     Application.StatusBar = "Filtrando plazas vacantes..."
     
@@ -495,6 +612,8 @@ Public Sub GenerarReportePlazasVacantes()
     Dim valorTomadaPor As String
     Dim valorSubregion As String
     Dim esVacante As Boolean
+    Dim fechaCelda As Variant
+    Dim fechaValida As Boolean
     
     For fila = 2 To ultimaFila
         ' Saltar filas sin numero de plaza
@@ -509,7 +628,29 @@ Public Sub GenerarReportePlazasVacantes()
             End If
         End If
         
-        ' NUEVOS CRITERIOS DE VACANTE (tabla verde)
+        ' FILTRO DE FECHA: verificar si la fecha esta en el rango
+        If usarFiltroFecha And colFechaRegistro > 0 Then
+            fechaCelda = wsOrigen.Cells(fila, colFechaRegistro).Value
+            fechaValida = False
+            
+            If Not IsEmpty(fechaCelda) And Not IsNull(fechaCelda) Then
+                On Error Resume Next
+                Dim fechaReg As Date
+                fechaReg = CDate(fechaCelda)
+                If Err.Number = 0 Then
+                    ' Comparar solo la parte de fecha (sin hora)
+                    If Int(fechaReg) >= Int(fechaInicio) And Int(fechaReg) <= Int(fechaFin) Then
+                        fechaValida = True
+                    End If
+                End If
+                Err.Clear
+                On Error GoTo ErrorHandler
+            End If
+            
+            If Not fechaValida Then GoTo SiguienteFila
+        End If
+        
+        ' CRITERIOS DE VACANTE (tabla verde)
         esVacante = False
         
         ' Criterio 1: Estado del nombramiento vacio o "Seleccionar"
@@ -544,18 +685,26 @@ SiguienteFila:
         Application.ScreenUpdating = True
         Application.Calculation = xlCalculationAutomatic
         Application.StatusBar = False
-        MsgBox "No se encontraron plazas vacantes con los criterios aplicados." & vbCrLf & vbCrLf & _
+        
+        Dim msgSinResultados As String
+        msgSinResultados = "No se encontraron plazas vacantes con los criterios aplicados." & vbCrLf & vbCrLf
+        If usarFiltroFecha Then
+            msgSinResultados = msgSinResultados & "Rango de fechas: " & Format(fechaInicio, "dd/mm/yyyy") & _
+                               " - " & Format(fechaFin, "dd/mm/yyyy") & vbCrLf & vbCrLf
+        End If
+        msgSinResultados = msgSinResultados & _
                "Criterios:" & vbCrLf & _
                "- Estado del nombramiento: vac" & ChrW(237) & "o o 'Seleccionar'" & vbCrLf & _
                "- Vacante tomada por: vac" & ChrW(237) & "o o 'SISTEMA MAESTRO'" & vbCrLf & _
                "- Solo subregiones oficiales de Antioquia" & vbCrLf & _
-               "- Plaza con n" & ChrW(250) & "mero v" & ChrW(225) & "lido", _
-               vbInformation, "Sin resultados"
+               "- Plaza con n" & ChrW(250) & "mero v" & ChrW(225) & "lido"
+        
+        MsgBox msgSinResultados, vbInformation, "Sin resultados"
         Exit Sub
     End If
     
     ' ----------------------------------------------------------
-    ' 4. Preparar hojas de resultados en ESTE archivo
+    ' 5. Preparar hojas de resultados en ESTE archivo
     ' ----------------------------------------------------------
     Application.StatusBar = "Generando reporte (" & contVacantes & " plazas vacantes)..."
     
@@ -579,7 +728,7 @@ SiguienteFila:
     wsResumen.Name = "Resumen"
     
     ' ----------------------------------------------------------
-    ' 5. Escribir encabezados en hoja de resultados
+    ' 6. Escribir encabezados en hoja de resultados
     ' ----------------------------------------------------------
     Dim encabezados As Variant
     encabezados = Array( _
@@ -664,7 +813,7 @@ SiguienteFila:
     End With
     
     ' ----------------------------------------------------------
-    ' 6. Escribir datos de plazas vacantes
+    ' 7. Escribir datos de plazas vacantes
     ' ----------------------------------------------------------
     Dim filaDestino As Long
     Dim i As Long
@@ -685,7 +834,7 @@ SiguienteFila:
     Next i
     
     ' ----------------------------------------------------------
-    ' 7. Formato de la hoja de resultados
+    ' 8. Formato de la hoja de resultados
     ' ----------------------------------------------------------
     wsResultados.Columns.AutoFit
     
@@ -713,7 +862,7 @@ SiguienteFila:
     Next r
     
     ' ----------------------------------------------------------
-    ' 8. Crear hoja de resumen
+    ' 9. Crear hoja de resumen
     ' ----------------------------------------------------------
     Application.StatusBar = "Generando resumen..."
     
@@ -737,31 +886,53 @@ SiguienteFila:
     wsResumen.Range("A4").Font.Size = 9
     wsResumen.Range("A4").Font.Color = RGB(100, 100, 100)
     
+    ' Mostrar rango de fechas si se uso filtro
+    Dim filaInfo As Long
+    filaInfo = 5
+    If usarFiltroFecha Then
+        wsResumen.Range("A" & filaInfo).Value = "Rango de fechas: " & Format(fechaInicio, "dd/mm/yyyy") & " - " & Format(fechaFin, "dd/mm/yyyy")
+        wsResumen.Range("A" & filaInfo).Font.Bold = True
+        wsResumen.Range("A" & filaInfo).Font.Color = RGB(0, 0, 180)
+        filaInfo = filaInfo + 1
+    Else
+        wsResumen.Range("A" & filaInfo).Value = "Rango de fechas: TODAS (sin filtro de fecha)"
+        wsResumen.Range("A" & filaInfo).Font.Italic = True
+        wsResumen.Range("A" & filaInfo).Font.Color = RGB(100, 100, 100)
+        filaInfo = filaInfo + 1
+    End If
+    
     ' Metricas principales
-    wsResumen.Range("A6").Value = "RESUMEN GENERAL"
-    wsResumen.Range("A6").Font.Bold = True
-    wsResumen.Range("A6").Font.Size = 13
+    filaInfo = filaInfo + 1
+    wsResumen.Cells(filaInfo, 1).Value = "RESUMEN GENERAL"
+    wsResumen.Cells(filaInfo, 1).Font.Bold = True
+    wsResumen.Cells(filaInfo, 1).Font.Size = 13
     
-    wsResumen.Range("A7").Value = "Total de registros en archivo fuente:"
-    wsResumen.Range("B7").Value = ultimaFila - 1
-    wsResumen.Range("B7").Font.Bold = True
+    filaInfo = filaInfo + 1
+    wsResumen.Cells(filaInfo, 1).Value = "Total de registros en archivo fuente:"
+    wsResumen.Cells(filaInfo, 2).Value = ultimaFila - 1
+    wsResumen.Cells(filaInfo, 2).Font.Bold = True
     
-    wsResumen.Range("A8").Value = "Total de plazas vacantes encontradas:"
-    wsResumen.Range("B8").Value = contVacantes
-    wsResumen.Range("B8").Font.Bold = True
-    wsResumen.Range("B8").Font.Color = RGB(192, 0, 0)
-    wsResumen.Range("B8").Font.Size = 14
+    filaInfo = filaInfo + 1
+    wsResumen.Cells(filaInfo, 1).Value = "Total de plazas vacantes encontradas:"
+    wsResumen.Cells(filaInfo, 2).Value = contVacantes
+    wsResumen.Cells(filaInfo, 2).Font.Bold = True
+    wsResumen.Cells(filaInfo, 2).Font.Color = RGB(192, 0, 0)
+    wsResumen.Cells(filaInfo, 2).Font.Size = 14
     
     ' Contar por subregion
-    wsResumen.Range("A10").Value = "VACANTES POR SUBREGION"
-    wsResumen.Range("A10").Font.Bold = True
-    wsResumen.Range("A10").Font.Size = 13
+    filaInfo = filaInfo + 2
+    wsResumen.Cells(filaInfo, 1).Value = "VACANTES POR SUBREGION"
+    wsResumen.Cells(filaInfo, 1).Font.Bold = True
+    wsResumen.Cells(filaInfo, 1).Font.Size = 13
     
-    wsResumen.Range("A11").Value = "Subregi" & ChrW(243) & "n"
-    wsResumen.Range("B11").Value = "Cantidad"
-    wsResumen.Range("A11").Font.Bold = True
-    wsResumen.Range("B11").Font.Bold = True
-    With wsResumen.Range("A11:B11")
+    filaInfo = filaInfo + 1
+    Dim filaTablaInicio As Long
+    filaTablaInicio = filaInfo
+    wsResumen.Cells(filaInfo, 1).Value = "Subregi" & ChrW(243) & "n"
+    wsResumen.Cells(filaInfo, 2).Value = "Cantidad"
+    wsResumen.Cells(filaInfo, 1).Font.Bold = True
+    wsResumen.Cells(filaInfo, 2).Font.Bold = True
+    With wsResumen.Range(wsResumen.Cells(filaInfo, 1), wsResumen.Cells(filaInfo, 2))
         .Interior.Color = RGB(0, 112, 60)
         .Font.Color = RGB(255, 255, 255)
     End With
@@ -773,7 +944,7 @@ SiguienteFila:
                          "Valle de Aburr" & ChrW(225))
     
     Dim filaResumen As Long
-    filaResumen = 12
+    filaResumen = filaInfo + 1
     Dim contSub As Long
     Dim totalContado As Long
     totalContado = 0
@@ -831,7 +1002,7 @@ SiguienteFila:
     End With
     
     ' Bordes tabla subregiones
-    With wsResumen.Range("A11:B" & filaResumen).Borders
+    With wsResumen.Range(wsResumen.Cells(filaTablaInicio, 1), wsResumen.Cells(filaResumen, 2)).Borders
         .LineStyle = xlContinuous
         .Weight = xlThin
     End With
@@ -860,18 +1031,24 @@ SiguienteFila:
     filaResumen = filaResumen + 1
     wsResumen.Cells(filaResumen, 1).Value = "4. Registros con n" & ChrW(250) & "mero de PLAZA v" & ChrW(225) & "lido (no vac" & ChrW(237) & "o ni 0)"
     
+    If usarFiltroFecha Then
+        filaResumen = filaResumen + 1
+        wsResumen.Cells(filaResumen, 1).Value = "5. Fecha de registro entre " & Format(fechaInicio, "dd/mm/yyyy") & " y " & Format(fechaFin, "dd/mm/yyyy")
+        wsResumen.Cells(filaResumen, 1).Font.Color = RGB(0, 0, 180)
+    End If
+    
     ' Autoajustar
     wsResumen.Columns("A:B").AutoFit
     
     ' ----------------------------------------------------------
-    ' 9. Cerrar archivo fuente SIN guardar cambios
+    ' 10. Cerrar archivo fuente SIN guardar cambios
     ' ----------------------------------------------------------
     If Not yaEstabAbierto Then
         wbFuente.Close SaveChanges:=False
     End If
     
     ' ----------------------------------------------------------
-    ' 10. Activar hoja de resultados
+    ' 11. Activar hoja de resultados
     ' ----------------------------------------------------------
     wsResultados.Activate
     wsResultados.Range("A1").Select
@@ -881,16 +1058,23 @@ SiguienteFila:
     Application.Calculation = xlCalculationAutomatic
     Application.StatusBar = False
     
-    MsgBox "Reporte generado exitosamente." & vbCrLf & vbCrLf & _
-           "Plazas vacantes encontradas: " & contVacantes & vbCrLf & vbCrLf & _
+    ' Mensaje final
+    Dim msgFinal As String
+    msgFinal = "Reporte generado exitosamente." & vbCrLf & vbCrLf & _
+               "Plazas vacantes encontradas: " & contVacantes & vbCrLf & vbCrLf
+    
+    If usarFiltroFecha Then
+        msgFinal = msgFinal & "Rango de fechas: " & Format(fechaInicio, "dd/mm/yyyy") & _
+                   " - " & Format(fechaFin, "dd/mm/yyyy") & vbCrLf & vbCrLf
+    End If
+    
+    msgFinal = msgFinal & _
            "Los resultados estan en las hojas:" & vbCrLf & _
            "- 'Plazas Vacantes': listado completo con 30 columnas" & vbCrLf & _
            "- 'Resumen': totales por subregion" & vbCrLf & vbCrLf & _
-           "Criterios usados:" & vbCrLf & _
-           "- Estado del nombramiento vac" & ChrW(237) & "o o 'Seleccionar'" & vbCrLf & _
-           "- Vacante tomada por vac" & ChrW(237) & "o o 'SISTEMA MAESTRO'" & vbCrLf & vbCrLf & _
-           "Recuerde guardar este archivo si desea conservar los resultados.", _
-           vbInformation, "Reporte completado"
+           "Recuerde guardar este archivo si desea conservar los resultados."
+    
+    MsgBox msgFinal, vbInformation, "Reporte completado"
     
     Exit Sub
     
