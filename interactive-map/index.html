@@ -1,0 +1,1104 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Piso 4 — Mapa Interactivo Smart Building</title>
+  <style>
+    /* ============================================================
+       SMART BUILDING — Interactive Floor Map
+       Piso 4 • Secretaría de Educación
+       ============================================================ */
+
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+    :root {
+      --bg-primary:    #0B1120;
+      --bg-secondary:  #111827;
+      --bg-card:       #1A2332;
+      --bg-card-hover: #1E293B;
+      --border:        rgba(59, 130, 246, 0.15);
+      --border-glow:   rgba(59, 130, 246, 0.35);
+      --text-primary:  #F1F5F9;
+      --text-secondary:#94A3B8;
+      --text-muted:    #64748B;
+      --accent-blue:   #3B82F6;
+      --accent-cyan:   #06B6D4;
+      --accent-green:  #10B981;
+      --accent-amber:  #F59E0B;
+      --accent-purple: #8B5CF6;
+      --accent-red:    #EF4444;
+      --accent-rose:   #F43F5E;
+      --glow-blue:     rgba(59, 130, 246, 0.25);
+      --glow-cyan:     rgba(6, 182, 212, 0.25);
+      --shadow-lg:     0 10px 40px rgba(0, 0, 0, 0.5);
+      --radius:        12px;
+      --radius-sm:     8px;
+      --radius-xs:     6px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ---- HEADER ---- */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 32px;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(12px);
+      position: relative;
+      z-index: 100;
+    }
+    .header::after {
+      content: '';
+      position: absolute;
+      bottom: -1px;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--accent-blue), var(--accent-cyan), transparent);
+      opacity: 0.6;
+    }
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .logo-icon {
+      width: 42px;
+      height: 42px;
+      background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      box-shadow: 0 0 20px var(--glow-blue);
+    }
+    .logo-icon svg { width: 24px; height: 24px; fill: white; }
+    .header-title h1 {
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      background: linear-gradient(135deg, var(--text-primary), var(--accent-cyan));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .header-title span {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-weight: 400;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .header-center {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .floor-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 20px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-glow);
+      border-radius: 24px;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--accent-cyan);
+      box-shadow: 0 0 15px rgba(6, 182, 212, 0.1);
+    }
+    .floor-badge .dot {
+      width: 8px;
+      height: 8px;
+      background: var(--accent-green);
+      border-radius: 50%;
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .status-chip {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 500;
+      background: rgba(16, 185, 129, 0.1);
+      color: var(--accent-green);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+    }
+    .status-chip .live-dot {
+      width: 6px;
+      height: 6px;
+      background: var(--accent-green);
+      border-radius: 50%;
+      animation: pulse-dot 1.5s ease-in-out infinite;
+    }
+    .datetime {
+      font-size: 13px;
+      color: var(--text-secondary);
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 400;
+    }
+
+    /* ---- LAYOUT ---- */
+    .main-layout {
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: 0;
+      height: calc(100vh - 73px);
+    }
+
+    /* ---- MAP AREA ---- */
+    .map-area {
+      position: relative;
+      padding: 24px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background:
+        radial-gradient(ellipse at 30% 50%, rgba(59, 130, 246, 0.03) 0%, transparent 60%),
+        radial-gradient(ellipse at 70% 30%, rgba(6, 182, 212, 0.03) 0%, transparent 60%),
+        var(--bg-primary);
+    }
+    .map-container {
+      position: relative;
+      width: 100%;
+      max-width: 95%;
+      aspect-ratio: 1472 / 830;
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--shadow-lg), 0 0 60px rgba(59, 130, 246, 0.08);
+      border: 1px solid var(--border);
+    }
+    .map-base-image {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+      /* The processed image already has blue tones; we add subtle filter for depth */
+      filter: brightness(0.95) contrast(1.05);
+    }
+
+    /* ---- SVG OVERLAY ---- */
+    .map-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+    .map-overlay .zone {
+      pointer-events: all;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    .map-overlay .zone:hover {
+      filter: brightness(1.3);
+    }
+
+    /* ---- ZONE LABELS (floating) ---- */
+    .zone-label {
+      position: absolute;
+      padding: 4px 10px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xs);
+      font-size: 9px;
+      font-weight: 600;
+      color: var(--text-primary);
+      white-space: nowrap;
+      pointer-events: none;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+      z-index: 10;
+      backdrop-filter: blur(8px);
+    }
+    .zone-label::before {
+      content: '';
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+    .zone-label.offices::before { background: var(--accent-blue); box-shadow: 0 0 6px var(--glow-blue); }
+    .zone-label.workstations::before { background: var(--accent-cyan); box-shadow: 0 0 6px var(--glow-cyan); }
+    .zone-label.meeting::before { background: var(--accent-purple); box-shadow: 0 0 6px rgba(139, 92, 246, 0.3); }
+    .zone-label.auditorium::before { background: var(--accent-amber); box-shadow: 0 0 6px rgba(245, 158, 11, 0.3); }
+    .zone-label.services::before { background: var(--accent-green); box-shadow: 0 0 6px rgba(16, 185, 129, 0.3); }
+    .zone-label.circulation::before { background: var(--text-muted); }
+
+    /* ---- INDICATOR DOTS ---- */
+    .indicator {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      z-index: 15;
+      pointer-events: none;
+    }
+    .indicator::after {
+      content: '';
+      position: absolute;
+      top: -4px;
+      left: -4px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 2px solid;
+      border-color: inherit;
+      opacity: 0.4;
+      animation: pulse-ring 2s ease-out infinite;
+    }
+    .indicator.green { background: var(--accent-green); border-color: var(--accent-green); }
+    .indicator.blue { background: var(--accent-blue); border-color: var(--accent-blue); }
+    .indicator.amber { background: var(--accent-amber); border-color: var(--accent-amber); }
+    .indicator.cyan { background: var(--accent-cyan); border-color: var(--accent-cyan); }
+
+    /* ---- SIDEBAR ---- */
+    .sidebar {
+      background: var(--bg-secondary);
+      border-left: 1px solid var(--border);
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+    .sidebar-section {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+    }
+    .sidebar-section:last-child { border-bottom: none; }
+    .section-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 16px;
+    }
+
+    /* Stats grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 14px;
+      transition: all 0.3s ease;
+    }
+    .stat-card:hover {
+      border-color: var(--border-glow);
+      box-shadow: 0 0 15px rgba(59, 130, 246, 0.08);
+    }
+    .stat-card .stat-value {
+      font-size: 24px;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      background: linear-gradient(135deg, var(--text-primary), var(--accent-cyan));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .stat-card .stat-label {
+      font-size: 10px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-top: 4px;
+    }
+    .stat-card.wide {
+      grid-column: span 2;
+    }
+
+    /* Occupancy bar */
+    .occupancy-bar-container {
+      margin-top: 12px;
+    }
+    .occupancy-bar-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .occupancy-bar-header span:first-child {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+    .occupancy-bar-header span:last-child {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--accent-cyan);
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .occupancy-bar {
+      width: 100%;
+      height: 8px;
+      background: var(--bg-primary);
+      border-radius: 4px;
+      overflow: hidden;
+      position: relative;
+    }
+    .occupancy-bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      background: linear-gradient(90deg, var(--accent-blue), var(--accent-cyan));
+      transition: width 1s ease;
+      position: relative;
+    }
+    .occupancy-bar-fill::after {
+      content: '';
+      position: absolute;
+      right: 0;
+      top: 0;
+      width: 20px;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3));
+      animation: shimmer 2s ease-in-out infinite;
+    }
+
+    /* Legend */
+    .legend-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xs);
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    .legend-item:hover {
+      border-color: var(--border-glow);
+      background: var(--bg-card-hover);
+    }
+    .legend-color {
+      width: 14px;
+      height: 14px;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+    .legend-info {
+      flex: 1;
+    }
+    .legend-name {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+    .legend-count {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-top: 1px;
+    }
+
+    /* Zone list */
+    .zone-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .zone-list-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xs);
+      transition: all 0.3s ease;
+      cursor: pointer;
+    }
+    .zone-list-item:hover {
+      border-color: var(--border-glow);
+      background: var(--bg-card-hover);
+    }
+    .zone-list-item .zone-name {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+    .zone-list-item .zone-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .zone-list-item .zone-status.active { color: var(--accent-green); }
+    .zone-list-item .zone-status.moderate { color: var(--accent-amber); }
+    .zone-list-item .zone-status.inactive { color: var(--text-muted); }
+    .zone-list-item .mini-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+    }
+    .zone-list-item .mini-dot.active { background: var(--accent-green); }
+    .zone-list-item .mini-dot.moderate { background: var(--accent-amber); }
+    .zone-list-item .mini-dot.inactive { background: var(--text-muted); }
+
+    /* ---- TOOLTIP ---- */
+    .tooltip {
+      position: fixed;
+      padding: 12px 16px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-glow);
+      border-radius: var(--radius-sm);
+      box-shadow: var(--shadow-lg), 0 0 30px rgba(59, 130, 246, 0.1);
+      pointer-events: none;
+      z-index: 1000;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+      max-width: 220px;
+      backdrop-filter: blur(12px);
+    }
+    .tooltip.visible { opacity: 1; }
+    .tooltip-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+    .tooltip-desc {
+      font-size: 11px;
+      color: var(--text-secondary);
+      line-height: 1.4;
+    }
+    .tooltip-status {
+      margin-top: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+    .tooltip-status.active { color: var(--accent-green); }
+    .tooltip-status .t-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent-green);
+    }
+
+    /* ---- FOOTER STATUS BAR ---- */
+    .footer-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 36px;
+      background: var(--bg-secondary);
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      font-size: 11px;
+      color: var(--text-muted);
+      z-index: 100;
+    }
+    .footer-left, .footer-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .footer-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .footer-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--accent-green);
+    }
+
+    /* ---- ANIMATIONS ---- */
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.85); }
+    }
+    @keyframes pulse-ring {
+      0% { opacity: 0.5; transform: scale(1); }
+      100% { opacity: 0; transform: scale(2); }
+    }
+    @keyframes shimmer {
+      0%, 100% { opacity: 0.3; }
+      50% { opacity: 0.8; }
+    }
+    @keyframes float-label {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-2px); }
+    }
+    @keyframes scan-line {
+      0% { top: 0; }
+      100% { top: 100%; }
+    }
+
+    /* Scan line effect */
+    .scan-line {
+      position: absolute;
+      left: 0;
+      width: 100%;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, rgba(6, 182, 212, 0.15), transparent);
+      pointer-events: none;
+      z-index: 5;
+      animation: scan-line 8s linear infinite;
+    }
+
+    /* Grid dots background */
+    .grid-dots {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: radial-gradient(circle, rgba(59,130,246,0.06) 1px, transparent 1px);
+      background-size: 20px 20px;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* ---- RESPONSIVE ---- */
+    @media (max-width: 1200px) {
+      .main-layout {
+        grid-template-columns: 1fr;
+      }
+      .sidebar {
+        flex-direction: row;
+        flex-wrap: wrap;
+        border-left: none;
+        border-top: 1px solid var(--border);
+        max-height: 300px;
+      }
+      .sidebar-section {
+        flex: 1;
+        min-width: 250px;
+      }
+    }
+
+    /* ---- PRINT / EXPORT ---- */
+    @media print {
+      .header, .sidebar, .footer-bar { display: none; }
+      .main-layout { display: block; }
+      .map-area { padding: 0; }
+      .map-container { max-width: 100%; box-shadow: none; border: none; }
+      body { background: white; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ====== HEADER ====== -->
+  <header class="header">
+    <div class="header-left">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+      </div>
+      <div class="header-title">
+        <h1>Smart Building Manager</h1>
+        <span>Sistema de Gestión de Espacios</span>
+      </div>
+    </div>
+    <div class="header-center">
+      <div class="floor-badge">
+        <span class="dot"></span>
+        Piso 4 — Secretaría de Educación
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="status-chip">
+        <span class="live-dot"></span>
+        EN VIVO
+      </div>
+      <div class="datetime" id="datetime"></div>
+    </div>
+  </header>
+
+  <!-- ====== MAIN LAYOUT ====== -->
+  <div class="main-layout">
+
+    <!-- ---- MAP ---- -->
+    <div class="map-area">
+      <div class="map-container" id="mapContainer">
+        <!-- Processed floor plan base -->
+        <img src="../assets/piso4_processed.png" alt="Piso 4 — Plano" class="map-base-image" id="mapImage" />
+
+        <!-- Scan line effect -->
+        <div class="scan-line"></div>
+
+        <!-- Grid dots overlay -->
+        <div class="grid-dots"></div>
+
+        <!-- SVG Zone overlays -->
+        <svg class="map-overlay" viewBox="0 0 1472 830" preserveAspectRatio="xMidYMid meet" id="zoneOverlay">
+          <defs>
+            <!-- Zone fill patterns -->
+            <linearGradient id="gradBlue" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#3B82F6" stop-opacity="0.15"/>
+              <stop offset="100%" stop-color="#1D4ED8" stop-opacity="0.25"/>
+            </linearGradient>
+            <linearGradient id="gradCyan" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#06B6D4" stop-opacity="0.12"/>
+              <stop offset="100%" stop-color="#0891B2" stop-opacity="0.22"/>
+            </linearGradient>
+            <linearGradient id="gradPurple" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#8B5CF6" stop-opacity="0.12"/>
+              <stop offset="100%" stop-color="#7C3AED" stop-opacity="0.22"/>
+            </linearGradient>
+            <linearGradient id="gradAmber" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#F59E0B" stop-opacity="0.10"/>
+              <stop offset="100%" stop-color="#D97706" stop-opacity="0.20"/>
+            </linearGradient>
+            <linearGradient id="gradGreen" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#10B981" stop-opacity="0.10"/>
+              <stop offset="100%" stop-color="#059669" stop-opacity="0.18"/>
+            </linearGradient>
+            <linearGradient id="gradGray" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#94A3B8" stop-opacity="0.06"/>
+              <stop offset="100%" stop-color="#64748B" stop-opacity="0.10"/>
+            </linearGradient>
+
+            <!-- Glow filter -->
+            <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur in="SourceAlpha" stdDeviation="4" result="blur"/>
+              <feFlood flood-color="#3B82F6" flood-opacity="0.3"/>
+              <feComposite in2="blur" operator="in"/>
+              <feMerge>
+                <feMergeNode/>
+                <feMergeNode in="SourceGraphic"/>
+              </feMerge>
+            </filter>
+          </defs>
+
+          <!-- ====== ZONES ====== -->
+
+          <!-- Oficinas Administrativas (upper center-left) -->
+          <rect class="zone" x="165" y="25" width="260" height="245"
+                rx="4" fill="url(#gradBlue)" stroke="#3B82F6" stroke-width="1.5" stroke-opacity="0.4"
+                data-zone="oficinas-admin" data-name="Oficinas Administrativas"
+                data-desc="Área de despachos y dirección" data-status="Activo" />
+
+          <!-- Área de Trabajo Central (offices center) -->
+          <rect class="zone" x="430" y="25" width="200" height="245"
+                rx="4" fill="url(#gradBlue)" stroke="#3B82F6" stroke-width="1.5" stroke-opacity="0.4"
+                data-zone="oficinas-central" data-name="Oficinas Centrales"
+                data-desc="Despachos de coordinación" data-status="Activo" />
+
+          <!-- Gran Espacio de Trabajo Abierto (upper right - Secretaría de Educación) -->
+          <rect class="zone" x="635" y="20" width="540" height="310"
+                rx="4" fill="url(#gradCyan)" stroke="#06B6D4" stroke-width="2" stroke-opacity="0.5"
+                data-zone="workspace-main" data-name="Espacio de Trabajo Principal"
+                data-desc="Secretaría de Educación — 136 puestos de trabajo" data-status="Activo" />
+
+          <!-- Salas de Reuniones (upper left rooms) -->
+          <rect class="zone" x="18" y="45" width="100" height="80"
+                rx="4" fill="url(#gradPurple)" stroke="#8B5CF6" stroke-width="1.5" stroke-opacity="0.4"
+                data-zone="sala-7" data-name="Sala 7"
+                data-desc="Sala de reuniones — 12 personas" data-status="Disponible" />
+          <rect class="zone" x="18" y="130" width="100" height="80"
+                rx="4" fill="url(#gradPurple)" stroke="#8B5CF6" stroke-width="1.5" stroke-opacity="0.4"
+                data-zone="sala-8" data-name="Sala 8"
+                data-desc="Sala de reuniones — 12 personas" data-status="En uso" />
+
+          <!-- Módulos de Trabajo (center-left area) -->
+          <rect class="zone" x="125" y="300" width="310" height="155"
+                rx="4" fill="url(#gradCyan)" stroke="#06B6D4" stroke-width="1.5" stroke-opacity="0.4"
+                data-zone="modulos-trabajo" data-name="Módulos de Trabajo"
+                data-desc="Puestos de trabajo lineal y módulos" data-status="Activo" />
+
+          <!-- Auditorio (bottom-left semicircular) -->
+          <path class="zone" d="M 30 470 L 30 780 Q 30 810 60 810 L 120 810
+                Q 280 810 280 650 L 280 470 Z
+                M 60 510 Q 200 510 230 650 Q 230 780 120 780 L 80 780
+                Q 50 780 50 750 L 50 510 Z"
+                fill="url(#gradAmber)" stroke="#F59E0B" stroke-width="2" stroke-opacity="0.5"
+                data-zone="auditorio" data-name="Auditorio Principal"
+                data-desc="Capacidad 200+ personas — Eventos y conferencias" data-status="Programado" />
+
+          <!-- Escaleras derecha -->
+          <rect class="zone" x="1370" y="25" width="90" height="310"
+                rx="4" fill="url(#gradGreen)" stroke="#10B981" stroke-width="1.5" stroke-opacity="0.3"
+                data-zone="escaleras-e" data-name="Escaleras Este"
+                data-desc="Acceso vertical — Pisos 1-6" data-status="Abierto" />
+
+          <!-- Escaleras izquierda (bottom-left corner) -->
+          <rect class="zone" x="5" y="680" width="70" height="140"
+                rx="4" fill="url(#gradGreen)" stroke="#10B981" stroke-width="1.5" stroke-opacity="0.3"
+                data-zone="escaleras-o" data-name="Escaleras Oeste"
+                data-desc="Acceso vertical — Pisos 1-6" data-status="Abierto" />
+
+          <!-- Sanitarios (top area near stairs) -->
+          <rect class="zone" x="100" y="3" width="95" height="40"
+                rx="4" fill="url(#gradGreen)" stroke="#10B981" stroke-width="1.5" stroke-opacity="0.3"
+                data-zone="sanitarios" data-name="Sanitarios"
+                data-desc="Baños Piso 4" data-status="Operativo" />
+
+          <!-- Área Central / Atrio (large bottom-center void) -->
+          <rect class="zone" x="540" y="450" width="620" height="340"
+                rx="4" fill="url(#gradGray)" stroke="#64748B" stroke-width="1" stroke-opacity="0.2"
+                data-zone="atrio" data-name="Atrio Central"
+                data-desc="Espacio abierto — Doble altura" data-status="Vista" />
+
+          <!-- Zona de Trabajo Sur (between modules and atrium) -->
+          <rect class="zone" x="320" y="300" width="215" height="155"
+                rx="4" fill="url(#gradCyan)" stroke="#06B6D4" stroke-width="1.5" stroke-opacity="0.3"
+                data-zone="workspace-sur" data-name="Zona de Trabajo Sur"
+                data-desc="Módulos de trabajo adicionales" data-status="Activo" />
+
+          <!-- Salas menores (center-left) -->
+          <rect class="zone" x="18" y="285" width="100" height="80"
+                rx="4" fill="url(#gradPurple)" stroke="#8B5CF6" stroke-width="1.5" stroke-opacity="0.4"
+                data-zone="sala-9" data-name="Sala 9"
+                data-desc="Sala de juntas — 6 personas" data-status="Disponible" />
+
+          <!-- Pasillo principal -->
+          <rect class="zone" x="120" y="260" width="1250" height="35"
+                rx="2" fill="url(#gradGray)" stroke="#475569" stroke-width="0.5" stroke-opacity="0.15"
+                data-zone="pasillo" data-name="Pasillo Principal"
+                data-desc="Circulación principal — Piso 4" data-status="Libre" />
+        </svg>
+
+        <!-- ====== FLOATING LABELS ====== -->
+        <div class="zone-label workstations" style="top:8%; left:48%; animation: float-label 4s ease-in-out infinite;">
+          Espacio de Trabajo — 136 puestos
+        </div>
+        <div class="zone-label offices" style="top:12%; left:14%; animation: float-label 4s ease-in-out infinite 0.5s;">
+          Oficinas Administrativas
+        </div>
+        <div class="zone-label meeting" style="top:9%; left:2.5%; animation: float-label 4s ease-in-out infinite 1s;">
+          Salas de Reuniones
+        </div>
+        <div class="zone-label auditorium" style="top:62%; left:5%; animation: float-label 4s ease-in-out infinite 1.5s;">
+          Auditorio Principal
+        </div>
+        <div class="zone-label circulation" style="top:55%; left:50%; animation: float-label 4s ease-in-out infinite 2s;">
+          Atrio Central
+        </div>
+        <div class="zone-label workstations" style="top:40%; left:14%; animation: float-label 4s ease-in-out infinite 2.5s;">
+          Módulos de Trabajo
+        </div>
+        <div class="zone-label services" style="top:5%; left:90%; animation: float-label 4s ease-in-out infinite 3s;">
+          Escaleras
+        </div>
+
+        <!-- ====== INDICATOR DOTS ====== -->
+        <div class="indicator green" style="top:20%; left:60%;"></div>
+        <div class="indicator green" style="top:25%; left:70%;"></div>
+        <div class="indicator cyan"  style="top:15%; left:55%;"></div>
+        <div class="indicator blue"  style="top:18%; left:22%;"></div>
+        <div class="indicator amber" style="top:75%; left:12%;"></div>
+        <div class="indicator green" style="top:42%; left:20%;"></div>
+        <div class="indicator green" style="top:42%; left:30%;"></div>
+        <div class="indicator cyan"  style="top:30%; left:80%;"></div>
+      </div>
+    </div>
+
+    <!-- ---- SIDEBAR ---- -->
+    <aside class="sidebar">
+      <!-- Statistics -->
+      <div class="sidebar-section">
+        <div class="section-title">Resumen del Piso</div>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-value">136</div>
+            <div class="stat-label">Puestos totales</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">7</div>
+            <div class="stat-label">Directivos</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">4</div>
+            <div class="stat-label">Salas</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">1</div>
+            <div class="stat-label">Auditorio</div>
+          </div>
+        </div>
+        <!-- Occupancy -->
+        <div class="occupancy-bar-container">
+          <div class="occupancy-bar-header">
+            <span>Ocupación actual</span>
+            <span id="occupancyValue">78%</span>
+          </div>
+          <div class="occupancy-bar">
+            <div class="occupancy-bar-fill" id="occupancyBar" style="width: 78%;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Legend -->
+      <div class="sidebar-section">
+        <div class="section-title">Leyenda de Zonas</div>
+        <div class="legend-list">
+          <div class="legend-item">
+            <div class="legend-color" style="background: linear-gradient(135deg, #3B82F6, #1D4ED8);"></div>
+            <div class="legend-info">
+              <div class="legend-name">Oficinas Administrativas</div>
+              <div class="legend-count">Despachos y dirección</div>
+            </div>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background: linear-gradient(135deg, #06B6D4, #0891B2);"></div>
+            <div class="legend-info">
+              <div class="legend-name">Espacios de Trabajo</div>
+              <div class="legend-count">Puestos lineales y módulos</div>
+            </div>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background: linear-gradient(135deg, #8B5CF6, #7C3AED);"></div>
+            <div class="legend-info">
+              <div class="legend-name">Salas de Reuniones</div>
+              <div class="legend-count">Juntas 6-12 personas</div>
+            </div>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background: linear-gradient(135deg, #F59E0B, #D97706);"></div>
+            <div class="legend-info">
+              <div class="legend-name">Auditorio</div>
+              <div class="legend-count">Eventos y conferencias</div>
+            </div>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background: linear-gradient(135deg, #10B981, #059669);"></div>
+            <div class="legend-info">
+              <div class="legend-name">Servicios / Accesos</div>
+              <div class="legend-count">Escaleras, sanitarios</div>
+            </div>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background: linear-gradient(135deg, #94A3B8, #64748B);"></div>
+            <div class="legend-info">
+              <div class="legend-name">Circulación / Atrio</div>
+              <div class="legend-count">Pasillos y áreas abiertas</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Zone Status -->
+      <div class="sidebar-section">
+        <div class="section-title">Estado de Zonas</div>
+        <div class="zone-list">
+          <div class="zone-list-item">
+            <span class="zone-name">Espacio Trabajo Principal</span>
+            <span class="zone-status active"><span class="mini-dot active"></span>Activo</span>
+          </div>
+          <div class="zone-list-item">
+            <span class="zone-name">Oficinas Administrativas</span>
+            <span class="zone-status active"><span class="mini-dot active"></span>Activo</span>
+          </div>
+          <div class="zone-list-item">
+            <span class="zone-name">Módulos de Trabajo</span>
+            <span class="zone-status active"><span class="mini-dot active"></span>Activo</span>
+          </div>
+          <div class="zone-list-item">
+            <span class="zone-name">Sala 7</span>
+            <span class="zone-status active"><span class="mini-dot active"></span>Libre</span>
+          </div>
+          <div class="zone-list-item">
+            <span class="zone-name">Sala 8</span>
+            <span class="zone-status moderate"><span class="mini-dot moderate"></span>En uso</span>
+          </div>
+          <div class="zone-list-item">
+            <span class="zone-name">Sala 9</span>
+            <span class="zone-status active"><span class="mini-dot active"></span>Libre</span>
+          </div>
+          <div class="zone-list-item">
+            <span class="zone-name">Auditorio Principal</span>
+            <span class="zone-status moderate"><span class="mini-dot moderate"></span>Evento 14:00</span>
+          </div>
+          <div class="zone-list-item">
+            <span class="zone-name">Sanitarios</span>
+            <span class="zone-status active"><span class="mini-dot active"></span>Operativo</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Furniture Legend -->
+      <div class="sidebar-section">
+        <div class="section-title">Mobiliario</div>
+        <div class="legend-list">
+          <div class="legend-item">
+            <div class="legend-color" style="background: #7EC8E3; border: 1px solid #5AADE0;"></div>
+            <div class="legend-info">
+              <div class="legend-name">Puesto de Trabajo Lineal</div>
+            </div>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background: #5AADE0; border: 1px solid #3A8FC2;"></div>
+            <div class="legend-info">
+              <div class="legend-name">Módulo 2 Puestos sin Credenza</div>
+            </div>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background: #4A7FB5; border: 1px solid #3A6A9A;"></div>
+            <div class="legend-info">
+              <div class="legend-name">Mesa Juntas 6 Personas</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- ====== FOOTER STATUS BAR ====== -->
+  <div class="footer-bar">
+    <div class="footer-left">
+      <div class="footer-item">
+        <span class="footer-dot"></span>
+        <span>Sistema operativo</span>
+      </div>
+      <div class="footer-item">
+        <span>Sensores: 24/24 activos</span>
+      </div>
+      <div class="footer-item">
+        <span>Última actualización: <span id="lastUpdate">--</span></span>
+      </div>
+    </div>
+    <div class="footer-right">
+      <div class="footer-item">
+        <span>Smart Building Manager v2.4</span>
+      </div>
+      <div class="footer-item">
+        <span>Piso 4 de 6</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== TOOLTIP ====== -->
+  <div class="tooltip" id="tooltip">
+    <div class="tooltip-title" id="tooltipTitle"></div>
+    <div class="tooltip-desc" id="tooltipDesc"></div>
+    <div class="tooltip-status active" id="tooltipStatus">
+      <span class="t-dot"></span>
+      <span id="tooltipStatusText"></span>
+    </div>
+  </div>
+
+  <!-- ====== SCRIPTS ====== -->
+  <script>
+    // --- DateTime ---
+    function updateDateTime() {
+      const now = new Date();
+      const opts = { weekday:'short', year:'numeric', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit', second:'2-digit' };
+      document.getElementById('datetime').textContent = now.toLocaleDateString('es-MX', opts);
+      document.getElementById('lastUpdate').textContent = now.toLocaleTimeString('es-MX', { hour:'2-digit', minute:'2-digit' });
+    }
+    updateDateTime();
+    setInterval(updateDateTime, 1000);
+
+    // --- Tooltip ---
+    const tooltip = document.getElementById('tooltip');
+    const zones = document.querySelectorAll('.zone');
+
+    zones.forEach(zone => {
+      zone.addEventListener('mouseenter', (e) => {
+        const name = zone.dataset.name;
+        const desc = zone.dataset.desc;
+        const status = zone.dataset.status;
+        document.getElementById('tooltipTitle').textContent = name;
+        document.getElementById('tooltipDesc').textContent = desc;
+        document.getElementById('tooltipStatusText').textContent = status;
+        tooltip.classList.add('visible');
+      });
+
+      zone.addEventListener('mousemove', (e) => {
+        tooltip.style.left = (e.clientX + 16) + 'px';
+        tooltip.style.top  = (e.clientY - 10) + 'px';
+      });
+
+      zone.addEventListener('mouseleave', () => {
+        tooltip.classList.remove('visible');
+      });
+
+      // Click effect
+      zone.addEventListener('click', () => {
+        const original = zone.getAttribute('stroke-opacity');
+        zone.setAttribute('stroke-opacity', '1');
+        zone.setAttribute('stroke-width', '3');
+        setTimeout(() => {
+          zone.setAttribute('stroke-opacity', original);
+          zone.setAttribute('stroke-width', zone.dataset.zone === 'workspace-main' || zone.dataset.zone === 'auditorio' ? '2' : '1.5');
+        }, 600);
+      });
+    });
+
+    // --- Simulated occupancy animation ---
+    function animateOccupancy() {
+      const bar = document.getElementById('occupancyBar');
+      const val = document.getElementById('occupancyValue');
+      const base = 78;
+      const variation = Math.floor(Math.random() * 6) - 3; // ±3
+      const current = Math.max(60, Math.min(95, base + variation));
+      bar.style.width = current + '%';
+      val.textContent = current + '%';
+    }
+    setInterval(animateOccupancy, 5000);
+
+    // --- Zone list hover interaction ---
+    document.querySelectorAll('.zone-list-item').forEach(item => {
+      item.addEventListener('mouseenter', () => {
+        const zoneName = item.querySelector('.zone-name').textContent.trim();
+        zones.forEach(z => {
+          if (z.dataset.name && z.dataset.name.includes(zoneName.split(' ')[0])) {
+            z.setAttribute('stroke-opacity', '0.8');
+            z.setAttribute('stroke-width', '3');
+          }
+        });
+      });
+      item.addEventListener('mouseleave', () => {
+        zones.forEach(z => {
+          const original = z.dataset.zone === 'workspace-main' || z.dataset.zone === 'auditorio' ? '0.5' : '0.4';
+          z.setAttribute('stroke-opacity', original);
+          z.setAttribute('stroke-width', z.dataset.zone === 'workspace-main' || z.dataset.zone === 'auditorio' ? '2' : '1.5');
+        });
+      });
+    });
+
+    // --- Legend hover interaction ---
+    document.querySelectorAll('.legend-item').forEach(item => {
+      item.addEventListener('mouseenter', () => {
+        item.style.transform = 'translateX(4px)';
+      });
+      item.addEventListener('mouseleave', () => {
+        item.style.transform = 'translateX(0)';
+      });
+    });
+  </script>
+</body>
+</html>
