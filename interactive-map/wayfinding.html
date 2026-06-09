@@ -1,0 +1,1193 @@
+<!--
+  Sistema de Orientación Interior — Piso 4
+  Secretaría de Educación · Gobernación de Antioquia
+  Wayfinding interactivo para propuesta de mejora institucional
+-->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Orientación Interior — Piso 4 · Gobernación de Antioquia</title>
+<style>
+/* =============================================================
+   1. VARIABLES Y RESET
+   ============================================================= */
+:root {
+  --azul: #185FA5;
+  --azul-claro: #2E7FD1;
+  --dorado: #BA7517;
+  --fondo: #f8f7f4;
+  --blanco: #ffffff;
+  --gris-linea: #e8e6e0;
+  --gris-texto: #5a5a5a;
+  --gris-oscuro: #333;
+  --zona-oficinas: #E6F1FB;
+  --zona-trabajo: #E1F5EE;
+  --zona-reuniones: #FAEEDA;
+  --zona-auditorio: #EEEDFE;
+  --zona-circulacion: #F0EFEB;
+  --zona-servicios: #F1EFE8;
+  --zona-ascensores: #FFF9C4;
+  --ruta-color: #185FA5;
+  --marcador-azul: #185FA5;
+  --marcador-rojo: #E05555;
+  --panel-ancho: 340px;
+  --header-alto: 56px;
+  --radius: 10px;
+  --sombra: 0 2px 12px rgba(0,0,0,0.08);
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  background: var(--fondo);
+  color: var(--gris-oscuro);
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* =============================================================
+   2. PANTALLA DE BIENVENIDA
+   ============================================================= */
+.welcome-screen {
+  position: fixed; inset:0;
+  background: var(--fondo);
+  z-index: 500;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+.welcome-screen.hidden {
+  opacity: 0; transform: scale(1.05);
+  pointer-events: none;
+}
+.welcome-logo {
+  width: 80px; height: 80px;
+  background: var(--azul);
+  border-radius: 16px;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 24px;
+  box-shadow: 0 4px 20px rgba(24,95,165,0.25);
+}
+.welcome-logo svg { width:44px; height:44px; fill:white; }
+.welcome-title {
+  font-size: 28px; font-weight: 700; color: var(--gris-oscuro);
+  margin-bottom: 6px;
+}
+.welcome-sub {
+  font-size: 14px; color: var(--gris-texto);
+  margin-bottom: 40px;
+}
+.welcome-question {
+  font-size: 16px; font-weight: 600; color: var(--gris-oscuro);
+  margin-bottom: 20px;
+}
+.welcome-buttons {
+  display: flex; gap: 20px;
+}
+.welcome-btn {
+  width: 220px;
+  padding: 24px 20px;
+  background: var(--blanco);
+  border: 2px solid var(--gris-linea);
+  border-radius: var(--radius);
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.3s ease;
+  font-family: inherit;
+}
+.welcome-btn:hover {
+  border-color: var(--azul);
+  box-shadow: 0 4px 20px rgba(24,95,165,0.12);
+  transform: translateY(-2px);
+}
+.welcome-btn .wb-icon { font-size: 36px; margin-bottom: 10px; }
+.welcome-btn .wb-label {
+  font-size: 15px; font-weight: 600; color: var(--gris-oscuro);
+  margin-bottom: 4px;
+}
+.welcome-btn .wb-hint {
+  font-size: 12px; color: var(--gris-texto);
+}
+
+/* =============================================================
+   3. BARRA SUPERIOR
+   ============================================================= */
+.topbar {
+  height: var(--header-alto);
+  background: var(--blanco);
+  border-bottom: 1px solid var(--gris-linea);
+  display: flex; align-items: center;
+  padding: 0 20px;
+  gap: 14px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  position: relative; z-index: 100;
+}
+.topbar-logo {
+  background: var(--azul);
+  color: white;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 11px; font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.topbar-divider {
+  width:1px; height:28px; background: var(--gris-linea);
+}
+.topbar-title {
+  font-size: 15px; font-weight: 600; color: var(--gris-oscuro);
+}
+.topbar-right {
+  margin-left: auto;
+  display: flex; align-items: center; gap: 12px;
+  font-size: 12px; color: var(--gris-texto);
+}
+.topbar-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 10px;
+  background: #EBF5EB;
+  border-radius: 20px;
+  font-size: 11px; font-weight: 600; color: #2E7D32;
+}
+.topbar-badge::before {
+  content:''; width:6px; height:6px; border-radius:50%;
+  background: #2E7D32;
+}
+
+/* =============================================================
+   4. LAYOUT PRINCIPAL
+   ============================================================= */
+.main-layout {
+  display: flex;
+  height: calc(100vh - var(--header-alto));
+}
+
+/* --- Panel izquierdo: directorio --- */
+.side-panel {
+  width: var(--panel-ancho);
+  min-width: var(--panel-ancho);
+  background: var(--blanco);
+  border-right: 1px solid var(--gris-linea);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.panel-search {
+  padding: 16px;
+  border-bottom: 1px solid var(--gris-linea);
+}
+.search-box {
+  width: 100%;
+  padding: 10px 14px 10px 36px;
+  border: 1.5px solid var(--gris-linea);
+  border-radius: 8px;
+  font-size: 13px; font-family: inherit;
+  color: var(--gris-oscuro);
+  background: var(--fondo) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239a9a9a' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M21 21l-4-4'/%3E%3C/svg%3E") 10px center / 16px no-repeat;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.search-box:focus { border-color: var(--azul); }
+.search-box::placeholder { color: #aaa; }
+
+/* Directorio */
+.directory {
+  flex: 1; overflow-y: auto;
+  padding: 8px 0;
+}
+.dir-category {
+  padding: 10px 16px 4px;
+  font-size: 10px; font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--gris-texto);
+  display: flex; align-items: center; gap: 6px;
+}
+.dir-category-icon { font-size: 13px; }
+.dir-item {
+  padding: 10px 16px 10px 28px;
+  font-size: 13px;
+  color: var(--gris-oscuro);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  border-left: 3px solid transparent;
+  display: flex; align-items: center; gap: 8px;
+}
+.dir-item:hover {
+  background: #F0F4FA;
+  border-left-color: var(--azul-claro);
+}
+.dir-item.active {
+  background: #E6F1FB;
+  border-left-color: var(--azul);
+  font-weight: 600;
+  color: var(--azul);
+}
+.dir-item .dir-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  flex-shrink: 0;
+}
+.dir-item.hidden { display: none; }
+
+/* --- Panel de instrucciones --- */
+.route-info {
+  border-top: 1px solid var(--gris-linea);
+  padding: 16px;
+  background: #FAFAF8;
+  display: none;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 45vh;
+  overflow-y: auto;
+}
+.route-info.visible { display: flex; }
+.route-header {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 14px; font-weight: 700;
+  color: var(--azul);
+}
+.route-endpoints {
+  font-size: 12px; color: var(--gris-texto);
+  line-height: 1.7;
+}
+.route-endpoints strong { color: var(--gris-oscuro); }
+.route-distance {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 10px;
+  background: #E6F1FB;
+  border-radius: 20px;
+  font-size: 11px; font-weight: 600; color: var(--azul);
+}
+.route-steps {
+  display: flex; flex-direction: column; gap: 8px;
+}
+.route-step {
+  display: flex; gap: 10px;
+  font-size: 12px; color: var(--gris-oscuro);
+  line-height: 1.5;
+}
+.step-num {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: var(--azul);
+  color: white;
+  font-size: 11px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.route-reset-btn {
+  padding: 10px;
+  background: var(--blanco);
+  border: 1.5px solid var(--gris-linea);
+  border-radius: 8px;
+  font-size: 13px; font-weight: 600;
+  color: var(--gris-oscuro);
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s;
+  text-align: center;
+}
+.route-reset-btn:hover {
+  border-color: var(--azul);
+  color: var(--azul);
+}
+
+/* --- Zona del mapa --- */
+.map-area {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background: var(--fondo);
+}
+.map-wrapper {
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform 0.3s ease;
+  transform-origin: center center;
+}
+.map-svg-container {
+  width: 95%; max-width: 1100px;
+  transition: transform 0.4s ease;
+}
+.map-svg-container svg {
+  width: 100%; height: auto;
+  display: block;
+}
+
+/* Controles del mapa */
+.map-controls {
+  position: absolute;
+  bottom: 20px; right: 20px;
+  display: flex; flex-direction: column; gap: 6px;
+  z-index: 50;
+}
+.map-ctrl {
+  width: 38px; height: 38px;
+  background: var(--blanco);
+  border: 1.5px solid var(--gris-linea);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  font-size: 18px; font-weight: 600;
+  color: var(--gris-texto);
+  font-family: inherit;
+  transition: all 0.2s;
+  box-shadow: var(--sombra);
+}
+.map-ctrl:hover {
+  border-color: var(--azul);
+  color: var(--azul);
+}
+
+/* =============================================================
+   5. ESTILOS SVG
+   ============================================================= */
+.zone-shape {
+  cursor: pointer;
+  transition: opacity 0.2s, filter 0.2s;
+  stroke: #ccc; stroke-width: 0.5;
+}
+.zone-shape:hover {
+  opacity: 0.75;
+  filter: brightness(0.95);
+}
+.zone-shape.highlighted {
+  stroke: var(--azul); stroke-width: 2;
+  filter: brightness(0.9);
+}
+.zone-label-svg {
+  font-size: 7px; fill: #555;
+  font-weight: 600;
+  pointer-events: none;
+  text-anchor: middle;
+}
+.zone-label-small {
+  font-size: 5.5px; fill: #888;
+  pointer-events: none;
+  text-anchor: middle;
+}
+
+/* Marcador "Usted está aquí" */
+@keyframes pulse-marker {
+  0%   { r: 6; opacity: 0.7; }
+  100% { r: 16; opacity: 0; }
+}
+@keyframes pulse-pin {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.08); }
+}
+.marker-pulse {
+  fill: var(--marcador-azul);
+  animation: pulse-marker 1.5s ease-out infinite;
+}
+.marker-center {
+  fill: var(--marcador-azul);
+}
+.marker-dest-center {
+  fill: var(--marcador-rojo);
+}
+
+/* Ruta animada */
+@keyframes march {
+  to { stroke-dashoffset: -20; }
+}
+.route-path {
+  fill: none;
+  stroke: var(--ruta-color);
+  stroke-width: 3;
+  stroke-dasharray: 8 6;
+  stroke-linecap: round;
+  animation: march 0.6s linear infinite;
+  opacity: 0;
+  transition: opacity 0.5s;
+}
+.route-path.visible { opacity: 1; }
+
+/* Arrowhead */
+.route-arrow {
+  fill: var(--ruta-color);
+}
+
+/* Step numbers on map */
+.step-circle-bg {
+  fill: var(--azul);
+}
+.step-circle-text {
+  fill: white;
+  font-size: 6px;
+  font-weight: 700;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+/* Tooltip */
+.map-tooltip {
+  position: absolute;
+  padding: 10px 14px;
+  background: var(--blanco);
+  border: 1.5px solid var(--gris-linea);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+  z-index: 80;
+  max-width: 200px;
+}
+.map-tooltip.visible {
+  pointer-events: auto;
+  opacity: 1;
+}
+.map-tooltip .tt-name {
+  font-size: 13px; font-weight: 700; color: var(--gris-oscuro);
+  margin-bottom: 6px;
+}
+.map-tooltip .tt-go {
+  padding: 5px 12px;
+  background: var(--azul);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px; font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.2s;
+}
+.map-tooltip .tt-go:hover { background: var(--azul-claro); }
+
+/* Usted está aquí label */
+.here-label {
+  font-size: 6.5px;
+  fill: var(--marcador-azul);
+  font-weight: 700;
+  text-anchor: middle;
+  pointer-events: none;
+}
+.dest-label {
+  font-size: 6px;
+  fill: var(--marcador-rojo);
+  font-weight: 700;
+  text-anchor: middle;
+  pointer-events: none;
+}
+
+/* =============================================================
+   6. RESPONSIVE (Móvil)
+   ============================================================= */
+@media (max-width: 768px) {
+  .side-panel {
+    position: fixed; bottom:0; left:0; right:0;
+    width: 100%; min-width: 100%;
+    height: 50vh;
+    border-right: none;
+    border-top: 1px solid var(--gris-linea);
+    border-radius: 16px 16px 0 0;
+    z-index: 200;
+    transform: translateY(calc(100% - 50px));
+    transition: transform 0.3s ease;
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.1);
+  }
+  .side-panel.drawer-open { transform: translateY(0); }
+  .side-panel::before {
+    content: '';
+    width: 40px; height: 4px;
+    background: #ccc; border-radius: 2px;
+    display: block; margin: 10px auto 0;
+  }
+  .map-area { height: calc(100vh - var(--header-alto)); }
+  .welcome-buttons { flex-direction: column; }
+  .welcome-btn { width: 260px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     PANTALLA DE BIENVENIDA
+     ============================================================ -->
+<div class="welcome-screen" id="welcomeScreen">
+  <div class="welcome-logo">
+    <svg viewBox="0 0 24 24"><path d="M12 2L2 7v10l10 5 10-5V7L12 2zm0 2.18L19.35 8 12 11.82 4.65 8 12 4.18zM4 9.64l7 3.5V19.5l-7-3.5V9.64zm9 9.86v-6.36l7-3.5v6.36l-7 3.5z"/></svg>
+  </div>
+  <div class="welcome-title">Bienvenido al Piso 4</div>
+  <div class="welcome-sub">Secretaría de Educación · Gobernación de Antioquia</div>
+  <div class="welcome-question">¿Por cuál ascensor llegó?</div>
+  <div class="welcome-buttons">
+    <button class="welcome-btn" onclick="selectEntrance('A')">
+      <div class="wb-icon">🛗</div>
+      <div class="wb-label">Ascensor Occidental</div>
+      <div class="wb-hint">Ala izquierda del edificio</div>
+    </button>
+    <button class="welcome-btn" onclick="selectEntrance('B')">
+      <div class="wb-icon">🛗</div>
+      <div class="wb-label">Ascensor Oriental</div>
+      <div class="wb-hint">Ala derecha del edificio</div>
+    </button>
+  </div>
+</div>
+
+<!-- ============================================================
+     BARRA SUPERIOR
+     ============================================================ -->
+<header class="topbar">
+  <div class="topbar-logo">Gobernación de Antioquia</div>
+  <div class="topbar-divider"></div>
+  <div class="topbar-title">Orientación Interior — Piso 4</div>
+  <div class="topbar-right">
+    <div class="topbar-badge">Sistema activo</div>
+    <span id="clock"></span>
+  </div>
+</header>
+
+<!-- ============================================================
+     LAYOUT PRINCIPAL
+     ============================================================ -->
+<div class="main-layout">
+
+  <!-- Panel izquierdo: directorio -->
+  <aside class="side-panel" id="sidePanel">
+    <div class="panel-search">
+      <input type="text" class="search-box" id="searchInput" placeholder="Buscar zona..." />
+    </div>
+    <div class="directory" id="directory">
+      <!-- Se llena dinámicamente -->
+    </div>
+    <div class="route-info" id="routeInfo">
+      <div class="route-header">🗺️ Cómo llegar</div>
+      <div class="route-endpoints" id="routeEndpoints"></div>
+      <div class="route-distance" id="routeDistance"></div>
+      <div class="route-steps" id="routeSteps"></div>
+      <button class="route-reset-btn" onclick="resetNavigation()">🔄 Nueva búsqueda</button>
+    </div>
+  </aside>
+
+  <!-- Zona del mapa -->
+  <div class="map-area" id="mapArea">
+    <div class="map-wrapper" id="mapWrapper">
+      <div class="map-svg-container" id="mapSvgContainer">
+        <!-- SVG generado por JS -->
+      </div>
+    </div>
+
+    <!-- Controles -->
+    <div class="map-controls">
+      <button class="map-ctrl" id="btnZoomIn" title="Acercar">+</button>
+      <button class="map-ctrl" id="btnZoomOut" title="Alejar">−</button>
+      <button class="map-ctrl" id="btnRecenter" title="Recentrar">⌖</button>
+    </div>
+
+    <!-- Tooltip -->
+    <div class="map-tooltip" id="mapTooltip">
+      <div class="tt-name" id="ttName"></div>
+      <button class="tt-go" id="ttGo">Ir aquí →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     JAVASCRIPT
+     ============================================================ -->
+<script>
+/* =============================================================
+   SECCIÓN 1: DATOS — Zonas, nodos, conexiones
+   ============================================================= */
+
+// Zonas del plano (coordenadas SVG en viewBox 900x500)
+const zonas = [
+  // Ala izquierda — oficinas
+  { id:'area1', nombre:'Área 1 — Oficinas', cat:'admin', x:70, y:28, w:80, h:55, color:'var(--zona-oficinas)', nodo:'A3' },
+  { id:'area2', nombre:'Área 2 — Oficinas', cat:'admin', x:155, y:28, w:75, h:55, color:'var(--zona-oficinas)', nodo:'A4' },
+  { id:'area3', nombre:'Área 3 — Oficinas', cat:'admin', x:235, y:28, w:75, h:55, color:'var(--zona-oficinas)', nodo:'A5' },
+  { id:'sala-reuniones', nombre:'Sala de Reuniones Principal', cat:'reuniones', x:155, y:90, w:100, h:55, color:'var(--zona-reuniones)', nodo:'A6' },
+  { id:'banos', nombre:'Baños', cat:'servicios', x:78, y:90, w:65, h:45, color:'var(--zona-servicios)', nodo:'A7' },
+  // Centro
+  { id:'recepcion', nombre:'Recepción / Lobby', cat:'admin', x:315, y:40, w:90, h:60, color:'var(--zona-oficinas)', nodo:'B1' },
+  { id:'auditorio', nombre:'Sala de Conferencias / Auditorio', cat:'reuniones', x:100, y:240, w:200, h:200, color:'var(--zona-auditorio)', nodo:'B2', shape:'auditorium' },
+  // Ala derecha — open space
+  { id:'sector-a', nombre:'Secretaría de Educación (Sector A)', cat:'trabajo', x:430, y:28, w:140, h:120, color:'var(--zona-trabajo)', nodo:'C1' },
+  { id:'sector-b', nombre:'Secretaría de Educación (Sector B)', cat:'trabajo', x:575, y:28, w:140, h:120, color:'var(--zona-trabajo)', nodo:'C2' },
+  { id:'sector-c', nombre:'Secretaría de Educación (Sector C)', cat:'trabajo', x:720, y:28, w:100, h:120, color:'var(--zona-trabajo)', nodo:'C3' },
+  { id:'directivos', nombre:'Área Directivos', cat:'admin', x:825, y:28, w:65, h:80, color:'var(--zona-oficinas)', nodo:'C4' },
+  { id:'servidores', nombre:'Sala de Servidores / Impresión', cat:'servicios', x:825, y:115, w:65, h:40, color:'var(--zona-servicios)', nodo:'C5' },
+  // Servicios
+  { id:'escaleras-n', nombre:'Escaleras de Emergencia Norte', cat:'servicios', x:8, y:20, w:48, h:60, color:'var(--zona-servicios)', nodo:'E1' },
+  { id:'escaleras-s', nombre:'Escaleras de Emergencia Sur', cat:'servicios', x:845, y:160, w:48, h:50, color:'var(--zona-servicios)', nodo:'E2' },
+  // Ascensores
+  { id:'asc-occ', nombre:'Ascensor Occidental', cat:'servicios', x:8, y:95, w:48, h:42, color:'var(--zona-ascensores)', nodo:'A1' },
+  { id:'asc-ori', nombre:'Ascensor Oriental', cat:'servicios', x:845, y:215, w:48, h:42, color:'var(--zona-ascensores)', nodo:'D1' },
+];
+
+// Categorías del directorio
+const categorias = [
+  { id:'admin', label:'Administrativo', icon:'📋' },
+  { id:'trabajo', label:'Trabajo Abierto', icon:'👥' },
+  { id:'reuniones', label:'Reuniones y Eventos', icon:'🏛️' },
+  { id:'servicios', label:'Servicios', icon:'⚙️' },
+];
+
+// Colores de dot por categoría
+const catColors = {
+  admin: '#185FA5',
+  trabajo: '#0E8A5F',
+  reuniones: '#BA7517',
+  servicios: '#777',
+};
+
+// Grafo de navegación — nodos (waypoints en pasillos)
+const nodos = {
+  // Ascensores
+  A1: { x:32, y:116 },   // Ascensor occidental
+  D1: { x:869, y:236 },  // Ascensor oriental
+
+  // Pasillo norte (y≈160, recorre izq→der)
+  PN1: { x:60, y:160 },
+  PN2: { x:110, y:160 },
+  PN3: { x:195, y:160 },
+  PN4: { x:275, y:160 },
+  PN5: { x:360, y:160 },
+  PN6: { x:430, y:160 },
+  PN7: { x:500, y:160 },
+  PN8: { x:645, y:160 },
+  PN9: { x:770, y:160 },
+  PN10:{ x:855, y:160 },
+
+  // Nodos frente a zonas (ramales verticales)
+  A3: { x:110, y:83 },   // Área 1
+  A4: { x:195, y:83 },   // Área 2
+  A5: { x:275, y:83 },   // Área 3
+  A6: { x:205, y:118 },  // Sala de Reuniones
+  A7: { x:110, y:112 },  // Baños
+  B1: { x:360, y:70 },   // Recepción/Lobby
+  B2: { x:200, y:240 },  // Auditorio
+  C1: { x:500, y:88 },   // Sector A
+  C2: { x:645, y:88 },   // Sector B
+  C3: { x:770, y:88 },   // Sector C
+  C4: { x:855, y:68 },   // Directivos
+  C5: { x:855, y:135 },  // Servidores
+  E1: { x:32, y:50 },    // Escaleras N
+  E2: { x:869, y:185 },  // Escaleras S
+};
+
+// Conexiones [nodoA, nodoB, distancia_metros]
+const conexiones = [
+  // Ascensor occidental → pasillo
+  ['A1', 'PN1', 8],
+  ['A1', 'A7', 12],
+
+  // Pasillo norte (eje horizontal)
+  ['PN1', 'PN2', 8],
+  ['PN2', 'PN3', 12],
+  ['PN3', 'PN4', 12],
+  ['PN4', 'PN5', 12],
+  ['PN5', 'PN6', 10],
+  ['PN6', 'PN7', 10],
+  ['PN7', 'PN8', 20],
+  ['PN8', 'PN9', 18],
+  ['PN9', 'PN10', 12],
+
+  // Ramales verticales — zonas izq
+  ['PN1', 'E1', 15],
+  ['PN2', 'A3', 10],
+  ['PN2', 'A7', 6],
+  ['PN3', 'A4', 10],
+  ['PN3', 'A6', 6],
+  ['PN4', 'A5', 10],
+  ['A6', 'A4', 5],
+  ['A7', 'A3', 4],
+
+  // Centro
+  ['PN5', 'B1', 12],
+  ['PN4', 'B2', 12],
+
+  // Ala derecha (ramales)
+  ['PN7', 'C1', 10],
+  ['PN8', 'C2', 10],
+  ['PN9', 'C3', 10],
+  ['PN10','C4', 12],
+  ['PN10','C5', 4],
+  ['PN10','E2', 4],
+
+  // Ascensor oriental
+  ['D1', 'E2', 7],
+  ['E2', 'PN10', 4],
+];
+
+/* =============================================================
+   SECCIÓN 2: LÓGICA DE RUTEO — Dijkstra
+   ============================================================= */
+
+// Construir grafo de adjacencia
+function buildGraph() {
+  const graph = {};
+  for (const id in nodos) graph[id] = [];
+  conexiones.forEach(([a, b, d]) => {
+    graph[a].push({ to: b, dist: d });
+    graph[b].push({ to: a, dist: d });
+  });
+  return graph;
+}
+
+// Dijkstra: retorna { path: [...nodeIds], dist: number }
+function dijkstra(graph, start, end) {
+  const dist = {};
+  const prev = {};
+  const visited = new Set();
+  for (const id in graph) { dist[id] = Infinity; prev[id] = null; }
+  dist[start] = 0;
+
+  while (true) {
+    // Encontrar nodo no visitado con menor distancia
+    let current = null;
+    let minDist = Infinity;
+    for (const id in dist) {
+      if (!visited.has(id) && dist[id] < minDist) {
+        minDist = dist[id]; current = id;
+      }
+    }
+    if (current === null || current === end) break;
+    visited.add(current);
+
+    // Relajar vecinos
+    for (const edge of graph[current]) {
+      const alt = dist[current] + edge.dist;
+      if (alt < dist[edge.to]) {
+        dist[edge.to] = alt;
+        prev[edge.to] = current;
+      }
+    }
+  }
+
+  // Reconstruir camino
+  const path = [];
+  let node = end;
+  while (node) { path.unshift(node); node = prev[node]; }
+  if (path[0] !== start) return { path: [], dist: Infinity };
+  return { path, dist: dist[end] };
+}
+
+const graph = buildGraph();
+
+/* =============================================================
+   SECCIÓN 3: RENDERIZADO SVG
+   ============================================================= */
+
+let currentEntrance = null; // 'A' o 'B'
+let currentDest = null;     // zona id
+let mapScale = 1;
+
+function renderSVG() {
+  const container = document.getElementById('mapSvgContainer');
+
+  let svg = `<svg viewBox="0 0 900 480" xmlns="http://www.w3.org/2000/svg" id="mainSvg">`;
+
+  // Cuadrícula de fondo
+  svg += `<defs>
+    <pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse">
+      <path d="M 10 0 L 0 0 0 10" fill="none" stroke="#e8e6e0" stroke-width="0.3"/>
+    </pattern>
+    <marker id="arrowhead" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
+      <polygon points="0 0, 6 2, 0 4" fill="#185FA5"/>
+    </marker>
+  </defs>`;
+  svg += `<rect width="900" height="480" fill="url(#grid)"/>`;
+
+  // Contorno del edificio (forma de L)
+  svg += `<path d="M 5 15 L 895 15 L 895 270 L 420 270 L 420 470 L 5 470 Z" 
+    fill="#faf9f6" stroke="#ccc" stroke-width="1"/>`;
+
+  // Pasillos principales
+  svg += `<rect x="55" y="150" width="800" height="20" rx="2" fill="var(--zona-circulacion)" stroke="#ddd" stroke-width="0.5"/>`;
+  // Pasillo transversal izquierdo
+  svg += `<rect x="300" y="90" width="18" height="80" rx="2" fill="var(--zona-circulacion)" stroke="#ddd" stroke-width="0.5"/>`;
+  // Pasillo hacia auditorio
+  svg += `<rect x="195" y="170" width="18" height="80" rx="2" fill="var(--zona-circulacion)" stroke="#ddd" stroke-width="0.5"/>`;
+
+  // Dibujar zonas
+  zonas.forEach(z => {
+    if (z.shape === 'auditorium') {
+      // Auditorio: forma semicircular
+      const cx = z.x + z.w/2, cy = z.y + z.h * 0.4;
+      const rx = z.w/2 * 0.9, ry = z.h/2 * 0.75;
+      svg += `<ellipse class="zone-shape" data-id="${z.id}" cx="${cx}" cy="${cy+20}" rx="${rx}" ry="${ry}" fill="${z.color}"/>`;
+      // Filas semicirculares (decoración)
+      for (let i = 1; i <= 4; i++) {
+        const r = ry * 0.3 + i * (ry*0.15);
+        svg += `<path d="M ${cx - r*0.9} ${cy+20+r*0.15} A ${r} ${r*0.6} 0 0 1 ${cx + r*0.9} ${cy+20+r*0.15}" 
+          fill="none" stroke="#cbc5f0" stroke-width="0.5" pointer-events="none"/>`;
+      }
+      svg += `<text class="zone-label-svg" x="${cx}" y="${cy+10}">Auditorio</text>`;
+      svg += `<text class="zone-label-small" x="${cx}" y="${cy+20}">~80 personas</text>`;
+    } else {
+      svg += `<rect class="zone-shape" data-id="${z.id}" x="${z.x}" y="${z.y}" width="${z.w}" height="${z.h}" rx="3" fill="${z.color}"/>`;
+      // Labels
+      const cx = z.x + z.w/2, cy = z.y + z.h/2;
+      // Nombre corto
+      let shortName = z.nombre.replace('Secretaría de Educación ', 'Sec.Ed. ');
+      shortName = shortName.replace('Escaleras de Emergencia ', 'Esc. ');
+      shortName = shortName.replace('Sala de Servidores / Impresión', 'Servidores');
+      shortName = shortName.replace('Sala de Reuniones Principal', 'Sala Reuniones');
+      shortName = shortName.replace('Recepción / Lobby', 'Recepción');
+      shortName = shortName.replace('Ascensor Occidental', '🛗 Asc. Occ.');
+      shortName = shortName.replace('Ascensor Oriental', '🛗 Asc. Ori.');
+      if (z.w < 60) {
+        svg += `<text class="zone-label-small" x="${cx}" y="${cy+2}">${shortName}</text>`;
+      } else {
+        svg += `<text class="zone-label-svg" x="${cx}" y="${cy}">${shortName}</text>`;
+        if (z.cat === 'trabajo') {
+          svg += `<text class="zone-label-small" x="${cx}" y="${cy+10}">Puestos de trabajo</text>`;
+        }
+      }
+    }
+  });
+
+  // Líneas de puestos de trabajo (decoración en open space)
+  for (let row = 0; row < 5; row++) {
+    for (let col = 0; col < 28; col++) {
+      const x = 435 + col * 14;
+      const y = 42 + row * 20;
+      if (x < 815) {
+        svg += `<rect x="${x}" y="${y}" width="10" height="6" rx="1" fill="#c8e6d8" stroke="#a8d4bf" stroke-width="0.3" pointer-events="none"/>`;
+      }
+    }
+  }
+
+  // Grupo para la ruta (se llenará dinámicamente)
+  svg += `<g id="routeGroup"></g>`;
+  svg += `<g id="stepMarkers"></g>`;
+
+  // Grupo para marcadores
+  svg += `<g id="markersGroup"></g>`;
+
+  svg += `</svg>`;
+  container.innerHTML = svg;
+
+  // Agregar event listeners a zonas
+  document.querySelectorAll('.zone-shape').forEach(el => {
+    el.addEventListener('click', (e) => onZoneClick(e, el.dataset.id));
+  });
+}
+
+/* =============================================================
+   SECCIÓN 4: INTERACCIONES UI
+   ============================================================= */
+
+// Selección de entrada (pantalla bienvenida)
+function selectEntrance(entrance) {
+  currentEntrance = entrance;
+  document.getElementById('welcomeScreen').classList.add('hidden');
+  renderSVG();
+  renderDirectory();
+  updateMarkers();
+  updateClock();
+  setInterval(updateClock, 1000);
+}
+
+// Reloj
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent = now.toLocaleTimeString('es-CO', { hour:'2-digit', minute:'2-digit' });
+}
+
+// Actualizar marcadores en SVG
+function updateMarkers() {
+  const g = document.getElementById('markersGroup');
+  let html = '';
+
+  // Marcador "Usted está aquí"
+  const startNodo = currentEntrance === 'A' ? 'A1' : 'D1';
+  const sn = nodos[startNodo];
+  html += `<circle class="marker-pulse" cx="${sn.x}" cy="${sn.y}" r="6"/>`;
+  html += `<circle class="marker-center" cx="${sn.x}" cy="${sn.y}" r="5" stroke="white" stroke-width="2"/>`;
+  html += `<text class="here-label" x="${sn.x}" y="${sn.y - 14}">📍 Usted está aquí</text>`;
+
+  // Marcador destino
+  if (currentDest) {
+    const zona = zonas.find(z => z.id === currentDest);
+    if (zona) {
+      const dn = nodos[zona.nodo];
+      html += `<circle cx="${dn.x}" cy="${dn.y}" r="7" fill="var(--marcador-rojo)" opacity="0.2"/>`;
+      html += `<circle class="marker-dest-center" cx="${dn.x}" cy="${dn.y}" r="5" stroke="white" stroke-width="2"/>`;
+      html += `<text class="dest-label" x="${dn.x}" y="${dn.y - 12}">🚩 ${zona.nombre}</text>`;
+    }
+  }
+
+  g.innerHTML = html;
+}
+
+// Directorio lateral
+function renderDirectory() {
+  const dir = document.getElementById('directory');
+  let html = '';
+  categorias.forEach(cat => {
+    html += `<div class="dir-category"><span class="dir-category-icon">${cat.icon}</span> ${cat.label}</div>`;
+    zonas.filter(z => z.cat === cat.id && z.id !== 'asc-occ' && z.id !== 'asc-ori').forEach(z => {
+      html += `<div class="dir-item" data-dest="${z.id}" onclick="navigateTo('${z.id}')">
+        <span class="dir-dot" style="background:${catColors[z.cat]}"></span>
+        ${z.nombre}
+      </div>`;
+    });
+  });
+  dir.innerHTML = html;
+}
+
+// Búsqueda
+document.getElementById('searchInput').addEventListener('input', (e) => {
+  const q = e.target.value.toLowerCase().trim();
+  document.querySelectorAll('.dir-item').forEach(item => {
+    const match = q.length < 1 || item.textContent.toLowerCase().includes(q);
+    item.classList.toggle('hidden', !match);
+  });
+  // Mostrar/ocultar categorías
+  document.querySelectorAll('.dir-category').forEach(cat => {
+    const nextItems = [];
+    let sib = cat.nextElementSibling;
+    while (sib && sib.classList.contains('dir-item')) {
+      nextItems.push(sib); sib = sib.nextElementSibling;
+    }
+    const anyVisible = nextItems.some(i => !i.classList.contains('hidden'));
+    cat.style.display = anyVisible ? '' : 'none';
+  });
+});
+
+// Click en zona del mapa → tooltip
+let tooltipZoneId = null;
+function onZoneClick(e, zoneId) {
+  const zona = zonas.find(z => z.id === zoneId);
+  if (!zona) return;
+
+  // No mostrar tooltip para ascensores
+  if (zoneId === 'asc-occ' || zoneId === 'asc-ori') return;
+
+  const tooltip = document.getElementById('mapTooltip');
+  const ttName = document.getElementById('ttName');
+  ttName.textContent = zona.nombre;
+  tooltipZoneId = zoneId;
+
+  // Posicionar tooltip
+  const mapArea = document.getElementById('mapArea');
+  const rect = mapArea.getBoundingClientRect();
+  let tx = e.clientX - rect.left + 14;
+  let ty = e.clientY - rect.top - 10;
+  if (tx + 200 > rect.width) tx = tx - 220;
+  if (ty + 80 > rect.height) ty = ty - 80;
+  tooltip.style.left = tx + 'px';
+  tooltip.style.top = ty + 'px';
+  tooltip.classList.add('visible');
+
+  // Highlight zona
+  document.querySelectorAll('.zone-shape').forEach(s => s.classList.remove('highlighted'));
+  document.querySelector(`[data-id="${zoneId}"]`)?.classList.add('highlighted');
+}
+
+// Cerrar tooltip al clicar fuera
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.zone-shape') && !e.target.closest('.map-tooltip')) {
+    document.getElementById('mapTooltip').classList.remove('visible');
+    document.querySelectorAll('.zone-shape').forEach(s => s.classList.remove('highlighted'));
+  }
+});
+
+// Botón "Ir aquí" del tooltip
+document.getElementById('ttGo').addEventListener('click', () => {
+  document.getElementById('mapTooltip').classList.remove('visible');
+  if (tooltipZoneId) navigateTo(tooltipZoneId);
+});
+
+// Navegación a destino
+function navigateTo(destId) {
+  currentDest = destId;
+  const zona = zonas.find(z => z.id === destId);
+  if (!zona) return;
+
+  const startNodo = currentEntrance === 'A' ? 'A1' : 'D1';
+  const endNodo = zona.nodo;
+
+  // Calcular ruta
+  const result = dijkstra(graph, startNodo, endNodo);
+  if (result.path.length < 2) return;
+
+  // Actualizar marcadores
+  updateMarkers();
+
+  // Dibujar ruta animada
+  drawRoute(result.path);
+
+  // Generar instrucciones
+  generateDirections(result.path, result.dist, zona);
+
+  // Resaltar en directorio
+  document.querySelectorAll('.dir-item').forEach(i => i.classList.remove('active'));
+  document.querySelector(`[data-dest="${destId}"]`)?.classList.add('active');
+
+  // Mostrar panel de instrucciones
+  document.getElementById('routeInfo').classList.add('visible');
+
+  // Highlight zona destino
+  document.querySelectorAll('.zone-shape').forEach(s => s.classList.remove('highlighted'));
+  document.querySelector(`[data-id="${destId}"]`)?.classList.add('highlighted');
+}
+
+// Dibujar ruta en SVG
+function drawRoute(path) {
+  const routeG = document.getElementById('routeGroup');
+  const stepsG = document.getElementById('stepMarkers');
+
+  // Construir puntos
+  const points = path.map(id => nodos[id]);
+  const d = points.map((p, i) => (i === 0 ? `M ${p.x} ${p.y}` : `L ${p.x} ${p.y}`)).join(' ');
+
+  routeG.innerHTML = `<path class="route-path visible" d="${d}" marker-mid="url(#arrowhead)"/>`;
+
+  // Marcadores de paso (en nodos clave donde cambia dirección)
+  let stepsHtml = '';
+  const keyPoints = getKeyTurns(path);
+  keyPoints.forEach((kp, i) => {
+    const n = nodos[kp.nodeId];
+    stepsHtml += `<circle class="step-circle-bg" cx="${n.x}" cy="${n.y}" r="7"/>`;
+    stepsHtml += `<text class="step-circle-text" x="${n.x}" y="${n.y}">${i + 1}</text>`;
+  });
+  stepsG.innerHTML = stepsHtml;
+}
+
+// Determinar puntos de giro clave
+function getKeyTurns(path) {
+  if (path.length <= 2) return path.map((id, i) => ({ nodeId: id, index: i }));
+
+  const turns = [{ nodeId: path[0], index: 0 }]; // inicio
+  for (let i = 1; i < path.length - 1; i++) {
+    const prev = nodos[path[i-1]];
+    const curr = nodos[path[i]];
+    const next = nodos[path[i+1]];
+    // Detectar cambio de dirección
+    const dx1 = curr.x - prev.x, dy1 = curr.y - prev.y;
+    const dx2 = next.x - curr.x, dy2 = next.y - curr.y;
+    const angle1 = Math.atan2(dy1, dx1);
+    const angle2 = Math.atan2(dy2, dx2);
+    const diff = Math.abs(angle2 - angle1);
+    if (diff > 0.3) turns.push({ nodeId: path[i], index: i });
+  }
+  turns.push({ nodeId: path[path.length-1], index: path.length-1 }); // destino
+  return turns;
+}
+
+// Generar instrucciones paso a paso
+function generateDirections(path, totalDist, zona) {
+  const startName = currentEntrance === 'A' ? 'Ascensor Occidental' : 'Ascensor Oriental';
+
+  document.getElementById('routeEndpoints').innerHTML = `
+    <strong>Desde:</strong> ${startName}<br>
+    <strong>Hasta:</strong> ${zona.nombre}`;
+  document.getElementById('routeDistance').textContent = `📏 ~${Math.round(totalDist)} metros`;
+
+  const stepsEl = document.getElementById('routeSteps');
+  const keyTurns = getKeyTurns(path);
+  let stepsHtml = '';
+
+  keyTurns.forEach((turn, i) => {
+    let instruction = '';
+    if (i === 0) {
+      instruction = `Salga del ${startName} hacia el pasillo principal`;
+    } else if (i === keyTurns.length - 1) {
+      instruction = `Ha llegado a <strong>${zona.nombre}</strong>`;
+    } else {
+      const prev = nodos[keyTurns[i-1].nodeId];
+      const curr = nodos[turn.nodeId];
+      const next = nodos[keyTurns[i+1]?.nodeId || turn.nodeId];
+
+      // Determinar dirección
+      const dx = next.x - curr.x;
+      const dy = next.y - curr.y;
+      const fromDx = curr.x - prev.x;
+
+      if (Math.abs(dy) > Math.abs(dx)) {
+        instruction = dy > 0 ? 'Continúe hacia el sur por el corredor' : 'Continúe hacia el norte';
+      } else {
+        if (fromDx === 0 || Math.abs(curr.y - prev.y) > 10) {
+          instruction = dx > 0 ? 'Gire a la derecha por el pasillo principal' : 'Gire a la izquierda por el pasillo principal';
+        } else {
+          // Calcular distancia al siguiente turn
+          const segDist = calcSegmentDist(path, keyTurns[i-1].index, turn.index);
+          instruction = `Avance ~${Math.round(segDist)}m por el pasillo`;
+          if (dx > 0) instruction += ' hacia el ala oriental';
+          else instruction += ' hacia el ala occidental';
+        }
+      }
+
+      // Verificar si hay zona cerca para dar referencia
+      const nearZone = zonas.find(z => {
+        const zCx = z.x + (z.w||0)/2, zCy = z.y + (z.h||0)/2;
+        return Math.abs(zCx - curr.x) < 50 && Math.abs(zCy - curr.y) < 50 && z.id !== zona.id;
+      });
+      if (nearZone && nearZone.id !== 'asc-occ' && nearZone.id !== 'asc-ori') {
+        instruction += ` (frente a ${nearZone.nombre})`;
+      }
+    }
+    stepsHtml += `<div class="route-step"><div class="step-num">${i+1}</div><div>${instruction}</div></div>`;
+  });
+
+  stepsEl.innerHTML = stepsHtml;
+}
+
+// Calcular distancia de un segmento de ruta
+function calcSegmentDist(path, fromIdx, toIdx) {
+  let d = 0;
+  for (let i = fromIdx; i < toIdx; i++) {
+    const a = nodos[path[i]], b = nodos[path[i+1]];
+    d += Math.sqrt((b.x-a.x)**2 + (b.y-a.y)**2) * 0.15; // Escala SVG → metros aprox
+  }
+  return d;
+}
+
+// Reset
+function resetNavigation() {
+  currentDest = null;
+  document.getElementById('routeInfo').classList.remove('visible');
+  document.getElementById('routeGroup').innerHTML = '';
+  document.getElementById('stepMarkers').innerHTML = '';
+  document.querySelectorAll('.dir-item').forEach(i => i.classList.remove('active'));
+  document.querySelectorAll('.zone-shape').forEach(s => s.classList.remove('highlighted'));
+  document.getElementById('searchInput').value = '';
+  updateMarkers();
+
+  // Restaurar directorio completo
+  document.querySelectorAll('.dir-item').forEach(i => i.classList.remove('hidden'));
+  document.querySelectorAll('.dir-category').forEach(c => c.style.display = '');
+}
+
+// Zoom
+document.getElementById('btnZoomIn').addEventListener('click', () => {
+  mapScale = Math.min(mapScale + 0.2, 2.5);
+  document.getElementById('mapSvgContainer').style.transform = `scale(${mapScale})`;
+});
+document.getElementById('btnZoomOut').addEventListener('click', () => {
+  mapScale = Math.max(mapScale - 0.2, 0.5);
+  document.getElementById('mapSvgContainer').style.transform = `scale(${mapScale})`;
+});
+document.getElementById('btnRecenter').addEventListener('click', () => {
+  mapScale = 1;
+  document.getElementById('mapSvgContainer').style.transform = 'scale(1)';
+});
+
+// Tecla Escape
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    document.getElementById('mapTooltip').classList.remove('visible');
+    resetNavigation();
+  }
+});
+
+// Drawer móvil
+const sidePanel = document.getElementById('sidePanel');
+sidePanel.addEventListener('click', (e) => {
+  if (window.innerWidth <= 768 && !sidePanel.classList.contains('drawer-open')) {
+    sidePanel.classList.add('drawer-open');
+  }
+});
+document.getElementById('mapArea').addEventListener('click', () => {
+  if (window.innerWidth <= 768) sidePanel.classList.remove('drawer-open');
+});
+</script>
+</body>
+</html>
