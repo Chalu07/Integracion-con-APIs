@@ -731,70 +731,70 @@ SiguienteFila:
     ' 6. Escribir encabezados en hoja de resultados
     ' ----------------------------------------------------------
     Dim encabezados As Variant
-    encabezados = Array( _
-        "PLAZA", _
-        "Subregi" & ChrW(243) & "n", _
-        "Municipio", _
-        "Establecimiento", _
-        "Sede", _
-        "Zona", _
-        "Cargo de la vacante", _
-        "Tipo de plaza", _
-        "Nivel acad" & ChrW(233) & "mico", _
-        "Motivo de la vacante", _
-        "Fecha de registro", _
-        "Acto admin. vacante", _
-        "Fecha acto admin.", _
-        "Observaci" & ChrW(243) & "n (azul)", _
-        "Registrada por", _
-        "Tiene lista Elegibles", _
-        "Obs. Permanencia", _
-        "Vacante tomada por", _
-        "Vacante tomada para", _
-        "Observaci" & ChrW(243) & "n (verde)", _
-        "OPEC", _
-        "Posici" & ChrW(243) & "n elegible", _
-        "C" & ChrW(233) & "dula seleccionado", _
-        "Nombre del seleccionado", _
-        "Correo seleccionado", _
-        "Celular", _
-        "Estado del nombramiento", _
-        "Acto admin. nombramiento", _
-        "Fecha acto nombramiento", _
-        "Novedad del nombramiento")
+    ReDim encabezados(0 To 29)
+    encabezados(0) = "PLAZA"
+    encabezados(1) = "Subregi" & ChrW(243) & "n"
+    encabezados(2) = "Municipio"
+    encabezados(3) = "Establecimiento"
+    encabezados(4) = "Sede"
+    encabezados(5) = "Zona"
+    encabezados(6) = "Cargo de la vacante"
+    encabezados(7) = "Tipo de plaza"
+    encabezados(8) = "Nivel acad" & ChrW(233) & "mico"
+    encabezados(9) = "Motivo de la vacante"
+    encabezados(10) = "Fecha de registro"
+    encabezados(11) = "Acto admin. vacante"
+    encabezados(12) = "Fecha acto admin."
+    encabezados(13) = "Observaci" & ChrW(243) & "n (azul)"
+    encabezados(14) = "Registrada por"
+    encabezados(15) = "Tiene lista Elegibles"
+    encabezados(16) = "Obs. Permanencia"
+    encabezados(17) = "Vacante tomada por"
+    encabezados(18) = "Vacante tomada para"
+    encabezados(19) = "Observaci" & ChrW(243) & "n (verde)"
+    encabezados(20) = "OPEC"
+    encabezados(21) = "Posici" & ChrW(243) & "n elegible"
+    encabezados(22) = "C" & ChrW(233) & "dula seleccionado"
+    encabezados(23) = "Nombre del seleccionado"
+    encabezados(24) = "Correo seleccionado"
+    encabezados(25) = "Celular"
+    encabezados(26) = "Estado del nombramiento"
+    encabezados(27) = "Acto admin. nombramiento"
+    encabezados(28) = "Fecha acto nombramiento"
+    encabezados(29) = "Novedad del nombramiento"
     
     Dim colsOrigen As Variant
-    colsOrigen = Array( _
-        colPlaza, _
-        colSubregion, _
-        colMunicipio, _
-        colEstablecimiento, _
-        colSede, _
-        colZona, _
-        colCargo, _
-        colTipoPlaza, _
-        colNivelAcad, _
-        colMotivo, _
-        colFechaRegistro, _
-        colActoAdminVacante, _
-        colFechaActoVacante, _
-        colObservacionAzul, _
-        colRegistradaPor, _
-        colElegibles, _
-        colObsPermanencia, _
-        colVacanteTomadaPor, _
-        colVacanteTomadaPara, _
-        colObservacionVerde, _
-        colOPEC, _
-        colPosElegible, _
-        colCedulaSel, _
-        colNombreSel, _
-        colCorreoSel, _
-        colCelularSel, _
-        colEstadoNombramiento, _
-        colActoAdminNombram, _
-        colFechaActoNombram, _
-        colNovedadNombram)
+    ReDim colsOrigen(0 To 29)
+    colsOrigen(0) = colPlaza
+    colsOrigen(1) = colSubregion
+    colsOrigen(2) = colMunicipio
+    colsOrigen(3) = colEstablecimiento
+    colsOrigen(4) = colSede
+    colsOrigen(5) = colZona
+    colsOrigen(6) = colCargo
+    colsOrigen(7) = colTipoPlaza
+    colsOrigen(8) = colNivelAcad
+    colsOrigen(9) = colMotivo
+    colsOrigen(10) = colFechaRegistro
+    colsOrigen(11) = colActoAdminVacante
+    colsOrigen(12) = colFechaActoVacante
+    colsOrigen(13) = colObservacionAzul
+    colsOrigen(14) = colRegistradaPor
+    colsOrigen(15) = colElegibles
+    colsOrigen(16) = colObsPermanencia
+    colsOrigen(17) = colVacanteTomadaPor
+    colsOrigen(18) = colVacanteTomadaPara
+    colsOrigen(19) = colObservacionVerde
+    colsOrigen(20) = colOPEC
+    colsOrigen(21) = colPosElegible
+    colsOrigen(22) = colCedulaSel
+    colsOrigen(23) = colNombreSel
+    colsOrigen(24) = colCorreoSel
+    colsOrigen(25) = colCelularSel
+    colsOrigen(26) = colEstadoNombramiento
+    colsOrigen(27) = colActoAdminNombram
+    colsOrigen(28) = colFechaActoNombram
+    colsOrigen(29) = colNovedadNombram
     
     Dim numCols As Long
     numCols = UBound(encabezados) + 1
