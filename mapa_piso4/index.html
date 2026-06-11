@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mapa Interactivo — Piso 4 · Gobernación de Antioquia</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   IDENTIDAD VISUAL — GOBERNACIÓN DE ANTIOQUIA
+   ============================================================ */
+:root {
+  --verde-principal: #018D38;
+  --verde-oscuro:    #0B5640;
+  --verde-menta:     #3AF9A2;
+  --blanco:          #FFFFFF;
+  --gris-claro:      #F4F4F4;
+  --pared:           #2C2C2C;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body { height: 100%; font-family: 'Inter', sans-serif; }
+
+body {
+  display: flex;
+  flex-direction: column;
+  background: var(--gris-claro);
+  overflow: hidden;
+}
+
+/* ---------- Encabezado ---------- */
+header {
+  background: var(--verde-oscuro);
+  color: var(--blanco);
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 30;
+}
+header h1 { font-size: 15px; font-weight: 700; }
+header span { font-size: 11px; opacity: .8; }
+
+/* ---------- Layout principal ---------- */
+#layout {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  position: relative;
+}
+
+/* ---------- Panel lateral ---------- */
+#panel {
+  width: 290px;
+  min-width: 290px;
+  background: var(--verde-oscuro);
+  color: var(--blanco);
+  padding: 14px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 20;
+}
+#panel h2 { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
+#panel label { font-size: 11px; font-weight: 600; display: block; margin-bottom: 4px; opacity: .9; }
+#panel select, #panel input {
+  width: 100%;
+  padding: 8px;
+  border-radius: 6px;
+  border: none;
+  font-family: inherit;
+  font-size: 12px;
+}
+#listaDestinos {
+  max-height: 180px;
+  overflow-y: auto;
+  background: rgba(255,255,255,.07);
+  border-radius: 6px;
+}
+.destino-item {
+  padding: 8px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+}
+.destino-item:hover { background: var(--verde-principal); }
+.destino-item.activo { background: var(--verde-principal); font-weight: 700; }
+.destino-item small { display: block; font-size: 9px; opacity: .75; font-weight: 400; }
+
+button {
+  padding: 9px 12px;
+  border: none;
+  border-radius: 6px;
+  background: var(--verde-principal);
+  color: var(--blanco);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+button:hover { background: var(--verde-menta); color: var(--verde-oscuro); }
+.fila-botones { display: flex; gap: 8px; }
+.fila-botones button { flex: 1; }
+
+/* ---------- Instrucciones ---------- */
+#instrucciones {
+  background: rgba(255,255,255,.07);
+  border-radius: 6px;
+  padding: 10px;
+  font-size: 11px;
+  line-height: 1.5;
+  min-height: 60px;
+}
+#instrucciones ol { padding-left: 18px; }
+#instrucciones li { margin-bottom: 5px; }
+#instrucciones .vacio { opacity: .6; font-style: italic; }
+
+/* ---------- Leyenda ---------- */
+#leyenda {
+  background: rgba(255,255,255,.07);
+  border-radius: 6px;
+  padding: 10px;
+  font-size: 11px;
+}
+#leyenda div { margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
+
+/* ---------- Contenedor del mapa ---------- */
+#mapaWrap {
+  flex: 1;
+  position: relative;
+  background: var(--blanco);
+  min-width: 0;
+  touch-action: none;
+}
+#mapa { width: 100%; height: 100%; cursor: grab; display: block; }
+#mapa.arrastrando { cursor: grabbing; }
+
+/* ---------- Controles de zoom ---------- */
+#controles {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 10;
+}
+#controles button {
+  width: 38px;
+  height: 38px;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(0,0,0,.2);
+}
+
+/* ---------- Estilos SVG ---------- */
+.pared        { fill: none; stroke: var(--pared); stroke-width: 2; }
+.area         { fill: var(--blanco); stroke: var(--pared); stroke-width: 1.2; }
+.circulacion  { fill: var(--verde-menta); opacity: .3; stroke: none; }
+.oficina      { fill: var(--verde-principal); fill-opacity: .55; stroke: var(--verde-oscuro); stroke-width: 1; cursor: pointer; transition: fill .15s; }
+.oficina:hover, .oficina.seleccionada { fill: var(--verde-menta); fill-opacity: .85; }
+.etiqueta     { font-family: 'Inter', sans-serif; font-weight: 700; font-size: 12px; fill: var(--verde-oscuro); pointer-events: none; }
+.etiqueta-sm  { font-family: 'Inter', sans-serif; font-weight: 400; font-size: 9px; fill: #444; pointer-events: none; }
+.icono        { font-size: 14px; pointer-events: none; }
+.puesto       { fill: #B9A7D9; stroke: #8a78ab; stroke-width: .4; }     /* LILA: puesto lineal */
+.modulo2      { fill: #58D5E8; stroke: #2fa6b8; stroke-width: .4; }     /* CIAN: módulo 2 puestos */
+.mesajuntas   { fill: #2D3FBF; stroke: #1c2a8a; stroke-width: .5; }     /* AZUL OSCURO: mesa juntas */
+
+/* Ruta animada */
+#rutaLinea {
+  fill: none;
+  stroke: var(--verde-menta);
+  stroke-width: 6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 3px rgba(1,141,56,.6));
+}
+.flecha-ruta { fill: var(--verde-menta); }
+
+/* Punto "Usted está aquí" con pulso */
+#puntoAqui circle.nucleo { fill: var(--verde-principal); stroke: var(--blanco); stroke-width: 2; }
+#puntoAqui circle.pulso {
+  fill: var(--verde-principal);
+  opacity: .5;
+  animation: pulso 1.6s ease-out infinite;
+  transform-origin: center;
+}
+@keyframes pulso {
+  0%   { r: 8;  opacity: .55; }
+  100% { r: 26; opacity: 0; }
+}
+#puntoDestino circle { fill: var(--verde-oscuro); stroke: var(--verde-menta); stroke-width: 2.5; }
+
+/* ---------- Responsive (mobile-first desde 375px) ---------- */
+#togglePanel { display: none; }
+@media (max-width: 760px) {
+  #layout { flex-direction: column; }
+  #panel {
+    width: 100%;
+    min-width: 0;
+    max-height: 46vh;
+    order: 2;
+  }
+  #mapaWrap { order: 1; min-height: 44vh; }
+  #togglePanel {
+    display: block;
+    position: absolute;
+    bottom: 8px;
+    left: 8px;
+    z-index: 15;
+  }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Gobernación de Antioquia · Piso 4</h1>
+  <span>Mapa interactivo y guía de rutas internas</span>
+</header>
+
+<div id="layout">
+
+  <!-- ===================== PANEL LATERAL ===================== -->
+  <aside id="panel">
+    <div>
+      <h2>📍 Punto de inicio</h2>
+      <label for="selInicio">Seleccione su acceso al piso</label>
+      <select id="selInicio">
+        <option value="ACCESO_OESTE">🛗 Ascensor / Escalera Oeste</option>
+        <option value="ACCESO_CENTRAL" selected>🪜 Escalera Central</option>
+        <option value="ACCESO_ESTE">🛗 Ascensor / Escalera Este</option>
+      </select>
+    </div>
+
+    <div>
+      <h2>🏢 Destino</h2>
+      <label for="buscador">Buscar dependencia</label>
+      <input id="buscador" type="text" placeholder="Ej: Sala de juntas, Aula 2...">
+      <div id="listaDestinos"></div>
+    </div>
+
+    <div class="fila-botones">
+      <button id="btnTrazar">➡️ Trazar ruta</button>
+      <button id="btnLimpiar">✖ Limpiar</button>
+    </div>
+    <button id="btnUbicacion">📍 Mi ubicación</button>
+
+    <div>
+      <h2>🧭 Instrucciones</h2>
+      <div id="instrucciones"><span class="vacio">Seleccione un destino y presione «Trazar ruta».</span></div>
+    </div>
+
+    <div id="leyenda">
+      <h2>Leyenda</h2>
+      <div>🛗 Ascensor</div>
+      <div>🪜 Escalera</div>
+      <div>🏢 Oficina / Dependencia</div>
+      <div>🚻 Baños</div>
+      <div>☕ Cocina</div>
+      <div>🎭 Auditorio</div>
+      <div>📍 Usted está aquí</div>
+      <div>➡️ Ruta activa</div>
+      <div><svg width="14" height="10"><rect width="14" height="10" class="puesto"/></svg> Puesto de trabajo lineal</div>
+      <div><svg width="14" height="10"><rect width="14" height="10" class="modulo2"/></svg> Módulo 2 puestos sin credenza</div>
+      <div><svg width="14" height="10"><rect width="14" height="10" class="mesajuntas"/></svg> Mesa juntas 6 personas</div>
+    </div>
+  </aside>
+
+  <!-- ===================== MAPA SVG ===================== -->
+  <div id="mapaWrap">
+    <div id="controles">
+      <button id="btnZoomIn" title="Acercar">＋</button>
+      <button id="btnZoomOut" title="Alejar">－</button>
+      <button id="btnReset" title="Restablecer vista">⟲</button>
+    </div>
+    <svg id="mapa" viewBox="0 0 1200 700" preserveAspectRatio="xMidYMid meet" aria-label="Plano del piso 4">
+      <g id="vista"><!-- capa transformable (zoom/pan) -->
+        <g id="capaPlano"></g>
+        <g id="capaRuta">
+          <path id="rutaLinea" d="" />
+          <g id="capaFlechas"></g>
+        </g>
+        <g id="puntoDestino" style="display:none"><circle r="7"/></g>
+        <g id="puntoAqui" style="display:none">
+          <circle class="pulso" r="8"/>
+          <circle class="nucleo" r="7"/>
+        </g>
+      </g>
+    </svg>
+  </div>
+
+</div>
+
+<script>
+/* ============================================================
+   MAPA INTERACTIVO PISO 4 — GOBERNACIÓN DE ANTIOQUIA
+   Estructura:
+     1. Datos: OFICINAS + GRAFO de pasillos
+     2. Dibujo del plano (SVG programático)
+     3. Pathfinding A*
+     4. Animación de ruta + instrucciones
+     5. Zoom / Pan
+     6. Eventos de UI
+   ============================================================ */
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const svg    = document.getElementById('mapa');
+const vista  = document.getElementById('vista');
+const capaPlano = document.getElementById('capaPlano');
+
+/* ------------------------------------------------------------
+   1A. GRAFO DE NODOS — pasillos reales del piso
+   Coordenadas en el viewBox 0 0 1200 700.
+   Los nodos solo se conectan si existe pasillo entre ellos.
+   ------------------------------------------------------------ */
+const GRAFO = {
+  /* Accesos al piso */
+  ACCESO_OESTE:   { x: 205, y: 115, vecinos: ['CORREDOR_NW'] },
+  ACCESO_CENTRAL: { x: 590, y: 250, vecinos: ['CRUCE_CENTRAL', 'CORREDOR_N3'] },
+  ACCESO_ESTE:    { x: 1135, y: 200, vecinos: ['CORREDOR_E'] },
+
+  /* Corredor norte (bloque B → open space) */
+  CORREDOR_NW:  { x: 260, y: 115, vecinos: ['ACCESO_OESTE', 'NODO_JUNTAS', 'CORREDOR_W1'] },
+  NODO_JUNTAS:  { x: 330, y: 115, vecinos: ['CORREDOR_NW', 'CORREDOR_N1'] },
+  CORREDOR_N1:  { x: 430, y: 115, vecinos: ['NODO_JUNTAS', 'NODO_BANOS', 'NODO_TALENTO'] },
+  NODO_BANOS:   { x: 500, y: 115, vecinos: ['CORREDOR_N1', 'NODO_COCINA'] },
+  NODO_COCINA:  { x: 545, y: 115, vecinos: ['NODO_BANOS', 'CORREDOR_N3'] },
+  CORREDOR_N3:  { x: 590, y: 115, vecinos: ['NODO_COCINA', 'ACCESO_CENTRAL', 'OPENSPA_NW'] },
+
+  /* Corredor oeste vertical (junto a las aulas) */
+  CORREDOR_W1:  { x: 260, y: 180, vecinos: ['CORREDOR_NW', 'NODO_AULA1', 'CORREDOR_W2'] },
+  NODO_AULA1:   { x: 215, y: 180, vecinos: ['CORREDOR_W1'] },
+  CORREDOR_W2:  { x: 260, y: 250, vecinos: ['CORREDOR_W1', 'NODO_AULA2', 'CORREDOR_W3', 'CRUCE_CENTRAL'] },
+  NODO_AULA2:   { x: 215, y: 250, vecinos: ['CORREDOR_W2'] },
+  CORREDOR_W3:  { x: 260, y: 330, vecinos: ['CORREDOR_W2', 'NODO_AULA3', 'CORREDOR_W4'] },
+  NODO_AULA3:   { x: 215, y: 330, vecinos: ['CORREDOR_W3'] },
+  CORREDOR_W4:  { x: 260, y: 410, vecinos: ['CORREDOR_W3', 'NODO_AULA4', 'NODO_AUDITORIO', 'NODO_SALON'] },
+  NODO_AULA4:   { x: 215, y: 410, vecinos: ['CORREDOR_W4'] },
+  NODO_AUDITORIO: { x: 230, y: 480, vecinos: ['CORREDOR_W4'] },
+
+  /* Corredor central horizontal (cruza el piso a y=250) */
+  CRUCE_CENTRAL: { x: 430, y: 250, vecinos: ['CORREDOR_W2', 'ACCESO_CENTRAL', 'NODO_TALENTO'] },
+  NODO_TALENTO:  { x: 430, y: 185, vecinos: ['CRUCE_CENTRAL', 'CORREDOR_N1'] },
+
+  /* Franja inferior: salón de reuniones */
+  NODO_SALON:   { x: 430, y: 410, vecinos: ['CORREDOR_W4', 'OPENSPA_SW'] },
+
+  /* Open space — pasillos perimetrales norte y sur */
+  OPENSPA_NW:   { x: 650, y: 115, vecinos: ['CORREDOR_N3', 'OPENSPA_ENTRADA', 'OPENSPA_N2'] },
+  OPENSPA_ENTRADA: { x: 650, y: 220, vecinos: ['OPENSPA_NW', 'OPENSPA_SW'] },
+  OPENSPA_SW:   { x: 650, y: 360, vecinos: ['OPENSPA_ENTRADA', 'NODO_SALON', 'OPENSPA_S2'] },
+  OPENSPA_N2:   { x: 850, y: 115, vecinos: ['OPENSPA_NW', 'OPENSPA_N3'] },
+  OPENSPA_N3:   { x: 1050, y: 115, vecinos: ['OPENSPA_N2', 'CORREDOR_E'] },
+  OPENSPA_S2:   { x: 850, y: 360, vecinos: ['OPENSPA_SW', 'OPENSPA_S3'] },
+  OPENSPA_S3:   { x: 1050, y: 360, vecinos: ['OPENSPA_S2', 'CORREDOR_E_S'] },
+
+  /* Extremo este */
+  CORREDOR_E:   { x: 1100, y: 115, vecinos: ['OPENSPA_N3', 'ACCESO_ESTE', 'CORREDOR_E_S'] },
+  CORREDOR_E_S: { x: 1100, y: 360, vecinos: ['CORREDOR_E', 'OPENSPA_S3'] }
+};
+
+/* ------------------------------------------------------------
+   1B. OFICINAS / DESTINOS
+   nodo_destino → nodo del grafo en la entrada de la zona.
+   bbox → rectángulo aproximado en coordenadas SVG.
+   ------------------------------------------------------------ */
+const OFICINAS = [
+  { id: 'open_space_sed', nombre: 'Secretaría de Educación', icono: '🏢',
+    descripcion: 'Open space principal · 335 puestos de trabajo · 7 directivos',
+    piso: 4, horario: 'Lun–Vie 7:30–17:00',
+    nodo_destino: 'OPENSPA_ENTRADA', bbox: { x: 620, y: 80, w: 540, h: 280 } },
+  { id: 'talento_humano', nombre: 'Dirección de Talento Humano', icono: '🏢',
+    descripcion: 'Oficinas privadas del núcleo central-oeste',
+    piso: 4, horario: 'Lun–Vie 7:30–17:00',
+    nodo_destino: 'NODO_TALENTO', bbox: { x: 380, y: 140, w: 100, h: 80 } },
+  { id: 'sala_juntas', nombre: 'Sala de Juntas Principal', icono: '🏢',
+    descripcion: 'Mesa de juntas para 6 personas',
+    piso: 4, horario: 'Reserva previa',
+    nodo_destino: 'NODO_JUNTAS', bbox: { x: 295, y: 60, w: 80, h: 50 } },
+  { id: 'auditorio', nombre: 'Auditorio / Teatro', icono: '🎭',
+    descripcion: 'Auditorio semicircular · esquina suroeste',
+    piso: 4, horario: 'Según programación',
+    nodo_destino: 'NODO_AUDITORIO', bbox: { x: 80, y: 440, w: 190, h: 180 } },
+  { id: 'aula1', nombre: 'Aula 1', icono: '🏢', descripcion: 'Sala de formación',
+    piso: 4, horario: 'Lun–Vie 7:30–17:00',
+    nodo_destino: 'NODO_AULA1', bbox: { x: 60, y: 145, w: 145, h: 65 } },
+  { id: 'aula2', nombre: 'Aula 2', icono: '🏢', descripcion: 'Sala de formación',
+    piso: 4, horario: 'Lun–Vie 7:30–17:00',
+    nodo_destino: 'NODO_AULA2', bbox: { x: 60, y: 218, w: 145, h: 65 } },
+  { id: 'aula3', nombre: 'Aula 3', icono: '🏢', descripcion: 'Sala de formación',
+    piso: 4, horario: 'Lun–Vie 7:30–17:00',
+    nodo_destino: 'NODO_AULA3', bbox: { x: 60, y: 291, w: 145, h: 65 } },
+  { id: 'aula4', nombre: 'Aula 4', icono: '🏢', descripcion: 'Sala de formación',
+    piso: 4, horario: 'Lun–Vie 7:30–17:00',
+    nodo_destino: 'NODO_AULA4', bbox: { x: 60, y: 364, w: 145, h: 65 } },
+  { id: 'banos', nombre: 'Baños', icono: '🚻',
+    descripcion: 'Baños públicos del núcleo central',
+    piso: 4, horario: 'Siempre disponibles',
+    nodo_destino: 'NODO_BANOS', bbox: { x: 480, y: 60, w: 45, h: 50 } },
+  { id: 'cocina', nombre: 'Cocina', icono: '☕',
+    descripcion: 'Kitchenette del núcleo central',
+    piso: 4, horario: 'Lun–Vie 7:00–18:00',
+    nodo_destino: 'NODO_COCINA', bbox: { x: 530, y: 60, w: 40, h: 50 } },
+  { id: 'salon_reuniones', nombre: 'Salón de Reuniones', icono: '🏢',
+    descripcion: 'Salón con sillas en filas · franja inferior central',
+    piso: 4, horario: 'Reserva previa',
+    nodo_destino: 'NODO_SALON', bbox: { x: 360, y: 425, w: 150, h: 110 } }
+];
+
+/* ------------------------------------------------------------
+   2. DIBUJO DEL PLANO — SVG programático
+   ------------------------------------------------------------ */
+function el(tag, attrs, parent) {
+  const e = document.createElementNS(SVG_NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  (parent || capaPlano).appendChild(e);
+  return e;
+}
+function texto(x, y, str, clase, anchor) {
+  const t = el('text', { x, y, class: clase || 'etiqueta', 'text-anchor': anchor || 'middle' });
+  t.textContent = str;
+  return t;
+}
+
+function dibujarPlano() {
+  /* Fondo general del piso */
+  el('rect', { x: 0, y: 0, width: 1200, height: 700, fill: 'var(--gris-claro)' });
+
+  /* ---- Circulaciones (verde claro, opacidad .3) ---- */
+  el('rect', { x: 245, y: 100, width: 870, height: 30, class: 'circulacion' });          // corredor norte
+  el('rect', { x: 245, y: 100, width: 30, height: 330, class: 'circulacion' });          // corredor oeste vertical
+  el('rect', { x: 245, y: 235, width: 360, height: 30, class: 'circulacion' });          // corredor central
+  el('rect', { x: 635, y: 100, width: 30, height: 275, class: 'circulacion' });          // entrada open space
+  el('rect', { x: 245, y: 345, width: 870, height: 30, class: 'circulacion' });          // corredor sur perimetral
+  el('rect', { x: 1085, y: 100, width: 30, height: 275, class: 'circulacion' });         // corredor este
+
+  /* ---- [A] BLOQUE OESTE: 4 aulas apiladas ---- */
+  OFICINAS.filter(o => o.id.startsWith('aula')).forEach(o => {
+    // (los rects interactivos se dibujan luego; aquí solo estructura)
+  });
+
+  /* ---- Auditorio semicircular (arco SVG, esquina inferior izquierda) ---- */
+  const audit = el('path', {
+    d: 'M 90 620 A 95 95 0 1 1 260 620 L 260 620 Q 175 560 90 620 Z',
+    class: 'area', id: 'forma_auditorio'
+  });
+  // gradas del auditorio (arcos concéntricos)
+  for (let r = 35; r <= 80; r += 15) {
+    el('path', { d: `M ${175 - r} 545 A ${r} ${r} 0 0 1 ${175 + r} 545`,
+                 fill: 'none', stroke: '#999', 'stroke-width': 1 });
+  }
+
+  /* ---- [B] Núcleo central-oeste: contorno ---- */
+  el('rect', { x: 280, y: 55, width: 330, height: 200, class: 'area' });
+  texto(445, 48, 'NÚCLEO CENTRAL-OESTE · OFICINAS', 'etiqueta-sm');
+  // subdivisiones internas de oficinas privadas
+  el('line', { x1: 380, y1: 130, x2: 380, y2: 235, class: 'pared', 'stroke-width': 1 });
+  el('line', { x1: 280, y1: 130, x2: 470, y2: 130, class: 'pared', 'stroke-width': 1 });
+  el('line', { x1: 470, y1: 55,  x2: 470, y2: 235, class: 'pared', 'stroke-width': 1 });
+
+  /* Escalera curva acceso oeste (esquina superior izquierda del bloque B) */
+  el('path', { d: 'M 185 60 Q 230 60 230 105 L 215 105 Q 215 75 185 75 Z', class: 'area' });
+  texto(205, 95, '🛗🪜', 'icono');
+  texto(205, 142, 'Acceso Oeste', 'etiqueta-sm');
+
+  /* ---- [C] Núcleo de circulación central ---- */
+  el('rect', { x: 565, y: 200, width: 70, height: 100, class: 'area' });
+  texto(600, 245, '🪜', 'icono');
+  texto(600, 262, '🛗', 'icono');
+  texto(600, 290, 'Acceso Central', 'etiqueta-sm');
+  // escaleras eléctricas (líneas diagonales)
+  for (let i = 0; i < 4; i++)
+    el('line', { x1: 570 + i * 16, y1: 205, x2: 578 + i * 16, y2: 230, stroke: '#999', 'stroke-width': 1 });
+
+  /* ---- [D] BLOQUE ESTE: Open Space Secretaría de Educación ---- */
+  el('rect', { x: 620, y: 80, width: 540, height: 280, class: 'area' });
+  texto(890, 100, 'SECRETARÍA DE EDUCACIÓN — OPEN SPACE (335 puestos · 7 directivos)', 'etiqueta-sm');
+
+  // filas de puestos de trabajo: lila (lineal) y cian (módulo 2)
+  for (let fila = 0; fila < 6; fila++) {
+    for (let col = 0; col < 16; col++) {
+      const x = 645 + col * 31, y = 135 + fila * 36;
+      const clase = (col % 5 === 3) ? 'modulo2' : 'puesto';
+      el('rect', { x, y, width: 24, height: 13, class: clase, rx: 1 });
+    }
+  }
+  // mesas de juntas 6 personas (azul oscuro) dentro del open space
+  el('rect', { x: 700, y: 330, width: 36, height: 16, class: 'mesajuntas', rx: 2 });
+  el('rect', { x: 980, y: 330, width: 36, height: 16, class: 'mesajuntas', rx: 2 });
+  // área de directivos
+  el('rect', { x: 1060, y: 130, width: 90, height: 210, fill: 'none', stroke: 'var(--verde-oscuro)', 'stroke-width': 1, 'stroke-dasharray': '4 3' });
+  texto(1105, 240, 'Directivos', 'etiqueta-sm');
+
+  /* ---- [E] Extremo este: escalera + ascensor secundario ---- */
+  el('rect', { x: 1115, y: 165, width: 45, height: 70, class: 'area' });
+  texto(1137, 195, '🛗', 'icono');
+  texto(1137, 212, '🪜', 'icono');
+  texto(1137, 252, 'Acceso Este', 'etiqueta-sm');
+
+  /* ---- [F] Franja inferior: salón con sillas + terraza ---- */
+  // salón de reuniones (sillas en filas)
+  for (let f = 0; f < 5; f++)
+    for (let c = 0; c < 8; c++)
+      el('rect', { x: 372 + c * 17, y: 445 + f * 17, width: 11, height: 9, fill: '#ccc', stroke: '#999', 'stroke-width': .4 });
+  // terraza/patio con cubierta diagonal
+  el('rect', { x: 560, y: 420, width: 560, height: 150, class: 'area' });
+  el('line', { x1: 560, y1: 420, x2: 1120, y2: 570, class: 'pared', 'stroke-width': 1 });
+  el('line', { x1: 1120, y1: 420, x2: 560, y2: 570, class: 'pared', 'stroke-width': 1 });
+  texto(840, 500, 'Terraza / Patio exterior', 'etiqueta-sm');
+
+  /* ---- Muro perimetral del piso ---- */
+  el('path', { d: 'M 55 55 L 1165 55 L 1165 375 L 1130 600 L 560 600 L 560 575 L 280 575 L 55 660 Z',
+               fill: 'none', class: 'pared' });
+
+  /* ---- Zonas interactivas (oficinas) ---- */
+  OFICINAS.forEach(o => {
+    const r = el('rect', {
+      x: o.bbox.x, y: o.bbox.y, width: o.bbox.w, height: o.bbox.h,
+      class: 'oficina', rx: 3, 'data-id': o.id
+    });
+    if (o.id === 'auditorio') r.setAttribute('fill-opacity', '.35');
+    if (o.id === 'open_space_sed') r.setAttribute('fill-opacity', '.12');
+    r.addEventListener('click', () => seleccionarDestino(o.id, true));
+    // etiqueta de la zona
+    texto(o.bbox.x + o.bbox.w / 2, o.bbox.y + o.bbox.h / 2 + 4,
+          o.icono + ' ' + o.nombre, o.bbox.w < 120 ? 'etiqueta-sm' : 'etiqueta');
+  });
+
+  /* Sala de juntas: mesa azul */
+  el('rect', { x: 320, y: 75, width: 30, height: 14, class: 'mesajuntas', rx: 2 });
+}
+
+/* ------------------------------------------------------------
+   3. PATHFINDING — Algoritmo A*
+   Heurística: distancia euclidiana al destino.
+   ------------------------------------------------------------ */
+function dist(a, b) {
+  const A = GRAFO[a], B = GRAFO[b];
+  return Math.hypot(A.x - B.x, A.y - B.y);
+}
+
+function aEstrella(inicio, fin) {
+  const abiertos = new Set([inicio]);
+  const desde = {};                       // nodo → nodo previo en el mejor camino
+  const g = { [inicio]: 0 };              // costo real acumulado
+  const f = { [inicio]: dist(inicio, fin) };
+
+  while (abiertos.size) {
+    // nodo abierto con menor f
+    let actual = null;
+    for (const n of abiertos)
+      if (actual === null || (f[n] ?? Infinity) < (f[actual] ?? Infinity)) actual = n;
+
+    if (actual === fin) {
+      const camino = [actual];
+      while (desde[actual]) { actual = desde[actual]; camino.unshift(actual); }
+      return camino;
+    }
+    abiertos.delete(actual);
+
+    for (const vecino of GRAFO[actual].vecinos) {
+      const gTent = g[actual] + dist(actual, vecino);
+      if (gTent < (g[vecino] ?? Infinity)) {
+        desde[vecino] = actual;
+        g[vecino] = gTent;
+        f[vecino] = gTent + dist(vecino, fin);
+        abiertos.add(vecino);
+      }
+    }
+  }
+  return null; // sin ruta
+}
+
+/* ------------------------------------------------------------
+   4. RUTA: dibujo animado + flechas + instrucciones
+   ------------------------------------------------------------ */
+const rutaLinea   = document.getElementById('rutaLinea');
+const capaFlechas = document.getElementById('capaFlechas');
+const puntoAqui   = document.getElementById('puntoAqui');
+const puntoDestino = document.getElementById('puntoDestino');
+const cajaInstr   = document.getElementById('instrucciones');
+
+function dibujarRuta(camino) {
+  const pts = camino.map(n => GRAFO[n]);
+  rutaLinea.setAttribute('d', 'M ' + pts.map(p => `${p.x} ${p.y}`).join(' L '));
+
+  // animación stroke-dashoffset
+  const largo = rutaLinea.getTotalLength();
+  rutaLinea.style.strokeDasharray = largo;
+  rutaLinea.style.strokeDashoffset = largo;
+  rutaLinea.style.transition = 'none';
+  rutaLinea.getBoundingClientRect();      // forzar reflow
+  rutaLinea.style.transition = 'stroke-dashoffset 1.6s ease-in-out';
+  rutaLinea.style.strokeDashoffset = '0';
+
+  // flechas de dirección a lo largo de la ruta
+  capaFlechas.innerHTML = '';
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i], b = pts[i + 1];
+    const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+    const ang = Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI;
+    const fl = document.createElementNS(SVG_NS, 'path');
+    fl.setAttribute('d', 'M -5 -4 L 5 0 L -5 4 Z');
+    fl.setAttribute('class', 'flecha-ruta');
+    fl.setAttribute('transform', `translate(${mx} ${my}) rotate(${ang})`);
+    capaFlechas.appendChild(fl);
+  }
+
+  // marcadores inicio / fin
+  const ini = pts[0], fin = pts[pts.length - 1];
+  puntoAqui.style.display = '';
+  puntoAqui.setAttribute('transform', `translate(${ini.x} ${ini.y})`);
+  puntoDestino.style.display = '';
+  puntoDestino.setAttribute('transform', `translate(${fin.x} ${fin.y})`);
+}
+
+/* Genera instrucciones paso a paso a partir de los giros del camino */
+function generarInstrucciones(camino, oficina) {
+  const pts = camino.map(n => GRAFO[n]);
+  const pasos = [];
+  const nombreInicio = document.querySelector('#selInicio option:checked').textContent.trim();
+  pasos.push(`Inicie en ${nombreInicio}.`);
+
+  let acumulado = 0;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i], b = pts[i + 1];
+    const tramo = Math.hypot(b.x - a.x, b.y - a.y);
+    acumulado += tramo;
+
+    if (i + 2 <= pts.length - 1) {
+      const c = pts[i + 2];
+      // producto cruzado para detectar giro (Y de SVG crece hacia abajo)
+      const cruz = (b.x - a.x) * (c.y - b.y) - (b.y - a.y) * (c.x - b.x);
+      if (Math.abs(cruz) > 200) {
+        const dirTramo = direccionCardinal(a, b);
+        pasos.push(`Avance ${Math.round(acumulado / 12)} m por el corredor ${dirTramo}.`);
+        pasos.push(cruz > 0 ? 'Gire a la derecha.' : 'Gire a la izquierda.');
+        acumulado = 0;
+      }
+    }
+  }
+  if (acumulado > 0) {
+    const a = pts[pts.length - 2], b = pts[pts.length - 1];
+    pasos.push(`Avance ${Math.round(acumulado / 12)} m por el corredor ${direccionCardinal(a, b)}.`);
+  }
+  pasos.push(`Ha llegado a ${oficina.icono} ${oficina.nombre}. ${oficina.descripcion}. Horario: ${oficina.horario}.`);
+
+  cajaInstr.innerHTML = '<ol>' + pasos.map(p => `<li>${p}</li>`).join('') + '</ol>';
+}
+
+function direccionCardinal(a, b) {
+  const dx = b.x - a.x, dy = b.y - a.y;
+  if (Math.abs(dx) >= Math.abs(dy)) return dx > 0 ? 'hacia el este' : 'hacia el oeste';
+  return dy > 0 ? 'hacia el sur' : 'hacia el norte';
+}
+
+function limpiarRuta() {
+  rutaLinea.setAttribute('d', '');
+  capaFlechas.innerHTML = '';
+  puntoDestino.style.display = 'none';
+  cajaInstr.innerHTML = '<span class="vacio">Seleccione un destino y presione «Trazar ruta».</span>';
+}
+
+/* ------------------------------------------------------------
+   5. ZOOM / PAN — matriz de transformación sobre #vista
+   ------------------------------------------------------------ */
+let escala = 1, tx = 0, ty = 0;
+function aplicarTransform() {
+  vista.setAttribute('transform', `translate(${tx} ${ty}) scale(${escala})`);
+}
+function zoom(factor, cx, cy) {
+  // cx, cy: centro del zoom en coordenadas del viewBox
+  const nueva = Math.min(6, Math.max(.5, escala * factor));
+  const real = nueva / escala;
+  tx = cx - real * (cx - tx);
+  ty = cy - real * (cy - ty);
+  escala = nueva;
+  aplicarTransform();
+}
+function puntoSVG(evt) {
+  const pt = svg.createSVGPoint();
+  pt.x = evt.clientX; pt.y = evt.clientY;
+  return pt.matrixTransform(svg.getScreenCTM().inverse());
+}
+
+document.getElementById('btnZoomIn').onclick  = () => zoom(1.3, 600, 350);
+document.getElementById('btnZoomOut').onclick = () => zoom(1 / 1.3, 600, 350);
+document.getElementById('btnReset').onclick   = () => { escala = 1; tx = 0; ty = 0; aplicarTransform(); };
+
+// rueda del mouse
+svg.addEventListener('wheel', e => {
+  e.preventDefault();
+  const p = puntoSVG(e);
+  zoom(e.deltaY < 0 ? 1.15 : 1 / 1.15, p.x, p.y);
+}, { passive: false });
+
+// arrastre (pan) — mouse y touch via Pointer Events
+let arrastrando = false, ultimo = null;
+svg.addEventListener('pointerdown', e => {
+  arrastrando = true; ultimo = puntoSVG(e);
+  svg.classList.add('arrastrando');
+  svg.setPointerCapture(e.pointerId);
+});
+svg.addEventListener('pointermove', e => {
+  if (!arrastrando) return;
+  const p = puntoSVG(e);
+  tx += p.x - ultimo.x; ty += p.y - ultimo.y;
+  ultimo = p;
+  aplicarTransform();
+});
+svg.addEventListener('pointerup', () => { arrastrando = false; svg.classList.remove('arrastrando'); });
+
+/* ------------------------------------------------------------
+   6. UI — selección de destino, trazado, mi ubicación
+   ------------------------------------------------------------ */
+const lista = document.getElementById('listaDestinos');
+let destinoActual = null;
+
+function renderLista(filtro) {
+  lista.innerHTML = '';
+  OFICINAS
+    .filter(o => !filtro || o.nombre.toLowerCase().includes(filtro) || o.descripcion.toLowerCase().includes(filtro))
+    .forEach(o => {
+      const d = document.createElement('div');
+      d.className = 'destino-item' + (o.id === destinoActual ? ' activo' : '');
+      d.innerHTML = `${o.icono} ${o.nombre}<small>${o.descripcion}</small>`;
+      d.onclick = () => seleccionarDestino(o.id, false);
+      lista.appendChild(d);
+    });
+}
+
+function seleccionarDestino(id, trazarYa) {
+  destinoActual = id;
+  renderLista(document.getElementById('buscador').value.toLowerCase());
+  document.querySelectorAll('.oficina').forEach(r =>
+    r.classList.toggle('seleccionada', r.getAttribute('data-id') === id));
+  if (trazarYa) trazar();
+}
+
+function trazar() {
+  if (!destinoActual) {
+    cajaInstr.innerHTML = '<span class="vacio">Primero seleccione un destino de la lista.</span>';
+    return;
+  }
+  const oficina = OFICINAS.find(o => o.id === destinoActual);
+  const inicio = document.getElementById('selInicio').value;
+  const camino = aEstrella(inicio, oficina.nodo_destino);
+  if (!camino) {
+    cajaInstr.innerHTML = '<span class="vacio">No se encontró una ruta válida.</span>';
+    return;
+  }
+  dibujarRuta(camino);
+  generarInstrucciones(camino, oficina);
+}
+
+function mostrarUbicacion() {
+  const n = GRAFO[document.getElementById('selInicio').value];
+  puntoAqui.style.display = '';
+  puntoAqui.setAttribute('transform', `translate(${n.x} ${n.y})`);
+}
+
+document.getElementById('btnTrazar').onclick   = trazar;
+document.getElementById('btnLimpiar').onclick  = limpiarRuta;
+document.getElementById('btnUbicacion').onclick = mostrarUbicacion;
+document.getElementById('buscador').addEventListener('input', e => renderLista(e.target.value.toLowerCase()));
+document.getElementById('selInicio').addEventListener('change', () => {
+  mostrarUbicacion();
+  if (destinoActual && rutaLinea.getAttribute('d')) trazar();
+});
+
+/* ---------- Inicialización ---------- */
+dibujarPlano();
+renderLista('');
+mostrarUbicacion();
+</script>
+</body>
+</html>
