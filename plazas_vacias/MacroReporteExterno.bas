@@ -18,8 +18,10 @@ Attribute VB_Name = "ModuloReporteExterno"
 ' FILTRO DE AÑO: Solo se incluyen registros del año 2026.
 '
 ' CRITERIOS DE FILTRADO (tabla verde, columna Y en adelante):
-' Una plaza se EXCLUYE si "Estado del nombramiento" es:
-'   "FIRMADO", "EN FIRMAS" o "EN PROCESO" (ya fue seleccionada/en tramite)
+' Una plaza se EXCLUYE si:
+'   - "Estado del nombramiento" es "FIRMADO", "EN FIRMAS" o "EN PROCESO"
+'   - "Obs. Permanencia" contiene: NO TOMAR, NO CUBRIR, NO OFERTAR,
+'     EXCEDENTE, SE NOMBRA, SE CONVIERTE
 ' Una plaza se considera VACANTE si cumple CUALQUIERA de estos:
 '   1. "Estado del nombramiento" esta VACIO o dice "Seleccionar"
 '   2. "Vacante tomada por" esta VACIO o contiene "SISTEMA MAESTRO"
@@ -452,6 +454,11 @@ Public Sub GenerarReportePlazasVacantes()
     
     colAreaEduc = BuscarColumnaContiene(wsOrigen, "rea de conocimiento")
     If colAreaEduc = 0 Then colAreaEduc = BuscarColumnaContiene(wsOrigen, "Area de conocimiento")
+    If colAreaEduc = 0 Then colAreaEduc = BuscarColumnaContiene(wsOrigen, "ESPECIALISTA")
+    If colAreaEduc = 0 Then
+        ' Columna P (16) contiene el area en el archivo fuente
+        If wsOrigen.Cells(1, 16).Value <> "" Then colAreaEduc = 16
+    End If
     
     colMotivo = BuscarColumnaContiene(wsOrigen, "Motivo de la vacante")
     
@@ -619,6 +626,7 @@ Public Sub GenerarReportePlazasVacantes()
     Dim fechaCelda As Variant
     Dim fechaValida As Boolean
     Dim fechaTemp As Date
+    Dim valorObsPerm As String
     
     For fila = 2 To ultimaFila
         ' Saltar filas sin numero de plaza
@@ -705,7 +713,23 @@ Public Sub GenerarReportePlazasVacantes()
             End If
         End If
         
-        ' Si cumple alguno de los criterios, es vacante
+        ' Filtro de exclusion por Observacion Direccion de Permanencia (col Z)
+        ' Si contiene palabras clave que indican que la plaza no debe cubrirse
+        If esVacante And colObsPermanencia > 0 Then
+            valorObsPerm = UCase(Trim(LeerCelda(wsOrigen, fila, colObsPermanencia)))
+            If InStr(1, valorObsPerm, "NO TOMAR", vbTextCompare) > 0 Or _
+               InStr(1, valorObsPerm, "NO CUBRIR", vbTextCompare) > 0 Or _
+               InStr(1, valorObsPerm, "NO OFERTAR", vbTextCompare) > 0 Or _
+               InStr(1, valorObsPerm, "NOI OFERTAR", vbTextCompare) > 0 Or _
+               InStr(1, valorObsPerm, "EXCEDENTE", vbTextCompare) > 0 Or _
+               InStr(1, valorObsPerm, "SE NOMBRA", vbTextCompare) > 0 Or _
+               InStr(1, valorObsPerm, "SE CONVIERTE", vbTextCompare) > 0 Or _
+               InStr(1, valorObsPerm, "SE CONVERTIR", vbTextCompare) > 0 Then
+                esVacante = False
+            End If
+        End If
+        
+        ' Si cumple los criterios y no fue excluida, es vacante
         If esVacante Then
             contVacantes = contVacantes + 1
             filasVacantes(contVacantes) = fila
@@ -765,7 +789,7 @@ SiguienteFila:
     ' 6. Escribir encabezados en hoja de resultados
     ' ----------------------------------------------------------
     Dim encabezados As Variant
-    ReDim encabezados(0 To 29)
+    ReDim encabezados(0 To 30)
     encabezados(0) = "PLAZA"
     encabezados(1) = "Subregi" & ChrW(243) & "n"
     encabezados(2) = "Municipio"
@@ -775,30 +799,31 @@ SiguienteFila:
     encabezados(6) = "Cargo de la vacante"
     encabezados(7) = "Tipo de plaza"
     encabezados(8) = "Nivel acad" & ChrW(233) & "mico"
-    encabezados(9) = "Motivo de la vacante"
-    encabezados(10) = "Fecha de registro"
-    encabezados(11) = "Acto admin. vacante"
-    encabezados(12) = "Fecha acto admin."
-    encabezados(13) = "Observaci" & ChrW(243) & "n (azul)"
-    encabezados(14) = "Registrada por"
-    encabezados(15) = "Tiene lista Elegibles"
-    encabezados(16) = "Obs. Permanencia"
-    encabezados(17) = "Vacante tomada por"
-    encabezados(18) = "Vacante tomada para"
-    encabezados(19) = "Observaci" & ChrW(243) & "n (verde)"
-    encabezados(20) = "OPEC"
-    encabezados(21) = "Posici" & ChrW(243) & "n elegible"
-    encabezados(22) = "C" & ChrW(233) & "dula seleccionado"
-    encabezados(23) = "Nombre del seleccionado"
-    encabezados(24) = "Correo seleccionado"
-    encabezados(25) = "Celular"
-    encabezados(26) = "Estado del nombramiento"
-    encabezados(27) = "Acto admin. nombramiento"
-    encabezados(28) = "Fecha acto nombramiento"
-    encabezados(29) = "Novedad del nombramiento"
+    encabezados(9) = ChrW(193) & "rea"
+    encabezados(10) = "Motivo de la vacante"
+    encabezados(11) = "Fecha de registro"
+    encabezados(12) = "Acto admin. vacante"
+    encabezados(13) = "Fecha acto admin."
+    encabezados(14) = "Observaci" & ChrW(243) & "n (azul)"
+    encabezados(15) = "Registrada por"
+    encabezados(16) = "Tiene lista Elegibles"
+    encabezados(17) = "Obs. Permanencia"
+    encabezados(18) = "Vacante tomada por"
+    encabezados(19) = "Vacante tomada para"
+    encabezados(20) = "Observaci" & ChrW(243) & "n (verde)"
+    encabezados(21) = "OPEC"
+    encabezados(22) = "Posici" & ChrW(243) & "n elegible"
+    encabezados(23) = "C" & ChrW(233) & "dula seleccionado"
+    encabezados(24) = "Nombre del seleccionado"
+    encabezados(25) = "Correo seleccionado"
+    encabezados(26) = "Celular"
+    encabezados(27) = "Estado del nombramiento"
+    encabezados(28) = "Acto admin. nombramiento"
+    encabezados(29) = "Fecha acto nombramiento"
+    encabezados(30) = "Novedad del nombramiento"
     
     Dim colsOrigen As Variant
-    ReDim colsOrigen(0 To 29)
+    ReDim colsOrigen(0 To 30)
     colsOrigen(0) = colPlaza
     colsOrigen(1) = colSubregion
     colsOrigen(2) = colMunicipio
@@ -808,27 +833,28 @@ SiguienteFila:
     colsOrigen(6) = colCargo
     colsOrigen(7) = colTipoPlaza
     colsOrigen(8) = colNivelAcad
-    colsOrigen(9) = colMotivo
-    colsOrigen(10) = colFechaRegistro
-    colsOrigen(11) = colActoAdminVacante
-    colsOrigen(12) = colFechaActoVacante
-    colsOrigen(13) = colObservacionAzul
-    colsOrigen(14) = colRegistradaPor
-    colsOrigen(15) = colElegibles
-    colsOrigen(16) = colObsPermanencia
-    colsOrigen(17) = colVacanteTomadaPor
-    colsOrigen(18) = colVacanteTomadaPara
-    colsOrigen(19) = colObservacionVerde
-    colsOrigen(20) = colOPEC
-    colsOrigen(21) = colPosElegible
-    colsOrigen(22) = colCedulaSel
-    colsOrigen(23) = colNombreSel
-    colsOrigen(24) = colCorreoSel
-    colsOrigen(25) = colCelularSel
-    colsOrigen(26) = colEstadoNombramiento
-    colsOrigen(27) = colActoAdminNombram
-    colsOrigen(28) = colFechaActoNombram
-    colsOrigen(29) = colNovedadNombram
+    colsOrigen(9) = colAreaEduc
+    colsOrigen(10) = colMotivo
+    colsOrigen(11) = colFechaRegistro
+    colsOrigen(12) = colActoAdminVacante
+    colsOrigen(13) = colFechaActoVacante
+    colsOrigen(14) = colObservacionAzul
+    colsOrigen(15) = colRegistradaPor
+    colsOrigen(16) = colElegibles
+    colsOrigen(17) = colObsPermanencia
+    colsOrigen(18) = colVacanteTomadaPor
+    colsOrigen(19) = colVacanteTomadaPara
+    colsOrigen(20) = colObservacionVerde
+    colsOrigen(21) = colOPEC
+    colsOrigen(22) = colPosElegible
+    colsOrigen(23) = colCedulaSel
+    colsOrigen(24) = colNombreSel
+    colsOrigen(25) = colCorreoSel
+    colsOrigen(26) = colCelularSel
+    colsOrigen(27) = colEstadoNombramiento
+    colsOrigen(28) = colActoAdminNombram
+    colsOrigen(29) = colFechaActoNombram
+    colsOrigen(30) = colNovedadNombram
     
     Dim numCols As Long
     numCols = UBound(encabezados) + 1
@@ -851,10 +877,10 @@ SiguienteFila:
     ' ----------------------------------------------------------
     ' Formatear columnas de actos administrativos como numero sin decimales
     ' para evitar notacion cientifica (ej: 2,02607E+12)
-    ' Col L (indice 12) = Acto admin. vacante
-    ' Col AB (indice 28) = Acto admin. nombramiento
-    wsResultados.Columns(12).NumberFormat = "0"
-    wsResultados.Columns(28).NumberFormat = "0"
+    ' Col M (indice 13) = Acto admin. vacante
+    ' Col AC (indice 29) = Acto admin. nombramiento
+    wsResultados.Columns(13).NumberFormat = "0"
+    wsResultados.Columns(29).NumberFormat = "0"
     
     Dim filaDestino As Long
     Dim i As Long
@@ -1078,10 +1104,13 @@ SiguienteFila:
     wsResumen.Cells(filaResumen, 1).Value = "4. Registros con n" & ChrW(250) & "mero de PLAZA v" & ChrW(225) & "lido (no vac" & ChrW(237) & "o ni 0)"
     filaResumen = filaResumen + 1
     wsResumen.Cells(filaResumen, 1).Value = "5. Solo registros del a" & ChrW(241) & "o 2026"
+    filaResumen = filaResumen + 1
+    wsResumen.Cells(filaResumen, 1).Value = "6. Excluidas si Obs. Permanencia dice: NO TOMAR, NO CUBRIR, NO OFERTAR, EXCEDENTE, SE NOMBRA, SE CONVIERTE"
+    wsResumen.Cells(filaResumen, 1).Font.Color = RGB(180, 0, 0)
     
     If usarFiltroFecha Then
         filaResumen = filaResumen + 1
-        wsResumen.Cells(filaResumen, 1).Value = "6. Fecha de registro entre " & Format(fechaInicio, "dd/mm/yyyy") & " y " & Format(fechaFin, "dd/mm/yyyy")
+        wsResumen.Cells(filaResumen, 1).Value = "7. Fecha de registro entre " & Format(fechaInicio, "dd/mm/yyyy") & " y " & Format(fechaFin, "dd/mm/yyyy")
         wsResumen.Cells(filaResumen, 1).Font.Color = RGB(0, 0, 180)
     End If
     
