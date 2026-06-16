@@ -838,6 +838,13 @@ SiguienteFila:
     ' ----------------------------------------------------------
     ' 7. Escribir datos de plazas vacantes
     ' ----------------------------------------------------------
+    ' Formatear columnas de actos administrativos como numero sin decimales
+    ' para evitar notacion cientifica (ej: 2,02607E+12)
+    ' Col L (indice 12) = Acto admin. vacante
+    ' Col AB (indice 28) = Acto admin. nombramiento
+    wsResultados.Columns(12).NumberFormat = "0"
+    wsResultados.Columns(28).NumberFormat = "0"
+    
     Dim filaDestino As Long
     Dim i As Long
     Dim colOrigen As Long
