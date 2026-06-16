@@ -18,6 +18,8 @@ Attribute VB_Name = "ModuloReporteExterno"
 ' FILTRO DE AÑO: Solo se incluyen registros del año 2026.
 '
 ' CRITERIOS DE FILTRADO (tabla verde, columna Y en adelante):
+' Una plaza se EXCLUYE si "Estado del nombramiento" es:
+'   "FIRMADO", "EN FIRMAS" o "EN PROCESO" (ya fue seleccionada/en tramite)
 ' Una plaza se considera VACANTE si cumple CUALQUIERA de estos:
 '   1. "Estado del nombramiento" esta VACIO o dice "Seleccionar"
 '   2. "Vacante tomada por" esta VACIO o contiene "SISTEMA MAESTRO"
@@ -25,6 +27,7 @@ Attribute VB_Name = "ModuloReporteExterno"
 ' Adicionalmente:
 '   - Solo se incluyen las 9 subregiones oficiales de Antioquia
 '   - El registro debe tener un numero de PLAZA valido
+'   - Solo registros del año 2026
 ' ================================================================
 
 Option Explicit
@@ -676,9 +679,17 @@ Public Sub GenerarReportePlazasVacantes()
         ' CRITERIOS DE VACANTE (tabla verde)
         esVacante = False
         
-        ' Criterio 1: Estado del nombramiento vacio o "Seleccionar"
+        ' Primero: si Estado del nombramiento es FIRMADO, EN FIRMAS o EN PROCESO
+        ' la plaza ya NO esta vacante (ya fue seleccionada/en tramite)
         If colEstadoNombramiento > 0 Then
             valorEstado = UCase(Trim(LeerCelda(wsOrigen, fila, colEstadoNombramiento)))
+            If valorEstado = "FIRMADO" Or valorEstado = "EN FIRMAS" Or valorEstado = "EN PROCESO" Then
+                GoTo SiguienteFila
+            End If
+        End If
+        
+        ' Criterio 1: Estado del nombramiento vacio o "Seleccionar"
+        If colEstadoNombramiento > 0 Then
             If valorEstado = "" Or valorEstado = "SELECCIONAR" Then
                 esVacante = True
             End If
@@ -1042,6 +1053,11 @@ SiguienteFila:
     wsResumen.Cells(filaResumen, 1).Value = "CRITERIOS DE FILTRADO (tabla verde)"
     wsResumen.Cells(filaResumen, 1).Font.Bold = True
     wsResumen.Cells(filaResumen, 1).Font.Size = 13
+    
+    filaResumen = filaResumen + 1
+    wsResumen.Cells(filaResumen, 1).Value = "Se EXCLUYE si Estado del nombramiento es FIRMADO, EN FIRMAS o EN PROCESO"
+    wsResumen.Cells(filaResumen, 1).Font.Italic = True
+    wsResumen.Cells(filaResumen, 1).Font.Color = RGB(180, 0, 0)
     
     filaResumen = filaResumen + 1
     wsResumen.Cells(filaResumen, 1).Value = "Se considera VACANTE si cumple CUALQUIERA de estos criterios:"
