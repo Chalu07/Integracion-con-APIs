@@ -18,7 +18,9 @@ Attribute VB_Name = "ModuloReporteExterno"
 ' FILTRO DE AÑO: Solo se incluyen registros del año 2026.
 '
 ' CRITERIOS DE FILTRADO (tabla verde, columna Y en adelante):
-' Una plaza se EXCLUYE si:
+' Una plaza se INCLUYE si "Obs. Permanencia" contiene "SISTEMA MAESTRO"
+'   (independientemente del Estado del nombramiento)
+' De lo contrario, se EXCLUYE si:
 '   - "Estado del nombramiento" es "FIRMADO", "EN FIRMAS" o "EN PROCESO"
 '   - "Obs. Permanencia" contiene: NO TOMAR, NO CUBRIR, NO OFERTAR,
 '     EXCEDENTE, SE NOMBRA, SE CONVIERTE
@@ -687,36 +689,48 @@ Public Sub GenerarReportePlazasVacantes()
         ' CRITERIOS DE VACANTE (tabla verde)
         esVacante = False
         
-        ' Primero: si Estado del nombramiento es FIRMADO, EN FIRMAS o EN PROCESO
-        ' la plaza ya NO esta vacante (ya fue seleccionada/en tramite)
-        If colEstadoNombramiento > 0 Then
-            valorEstado = UCase(Trim(LeerCelda(wsOrigen, fila, colEstadoNombramiento)))
-            If valorEstado = "FIRMADO" Or valorEstado = "EN FIRMAS" Or valorEstado = "EN PROCESO" Then
-                GoTo SiguienteFila
-            End If
+        ' Leer Obs. Permanencia (col Z) para verificar si dice SISTEMA MAESTRO
+        valorObsPerm = ""
+        If colObsPermanencia > 0 Then
+            valorObsPerm = UCase(Trim(LeerCelda(wsOrigen, fila, colObsPermanencia)))
         End If
         
-        ' Criterio 1: Estado del nombramiento vacio o "Seleccionar"
-        If colEstadoNombramiento > 0 Then
-            If valorEstado = "" Or valorEstado = "SELECCIONAR" Then
-                esVacante = True
+        ' Si Obs. Permanencia dice SISTEMA MAESTRO, la plaza se incluye
+        ' independientemente del Estado del nombramiento
+        If InStr(1, valorObsPerm, "SISTEMA MAESTRO", vbTextCompare) > 0 Then
+            esVacante = True
+        Else
+            ' Si Estado del nombramiento es FIRMADO, EN FIRMAS o EN PROCESO
+            ' la plaza ya NO esta vacante (ya fue seleccionada/en tramite)
+            If colEstadoNombramiento > 0 Then
+                valorEstado = UCase(Trim(LeerCelda(wsOrigen, fila, colEstadoNombramiento)))
+                If valorEstado = "FIRMADO" Or valorEstado = "EN FIRMAS" Or valorEstado = "EN PROCESO" Then
+                    GoTo SiguienteFila
+                End If
             End If
-        End If
-        
-        ' Criterio 2: Vacante tomada por vacio o contiene "SISTEMA MAESTRO"
-        If Not esVacante Then
-            If colVacanteTomadaPor > 0 Then
-                valorTomadaPor = UCase(Trim(LeerCelda(wsOrigen, fila, colVacanteTomadaPor)))
-                If valorTomadaPor = "" Or InStr(1, valorTomadaPor, "SISTEMA MAESTRO", vbTextCompare) > 0 Then
+            
+            ' Criterio 1: Estado del nombramiento vacio o "Seleccionar"
+            If colEstadoNombramiento > 0 Then
+                If valorEstado = "" Or valorEstado = "SELECCIONAR" Then
                     esVacante = True
+                End If
+            End If
+            
+            ' Criterio 2: Vacante tomada por vacio o contiene "SISTEMA MAESTRO"
+            If Not esVacante Then
+                If colVacanteTomadaPor > 0 Then
+                    valorTomadaPor = UCase(Trim(LeerCelda(wsOrigen, fila, colVacanteTomadaPor)))
+                    If valorTomadaPor = "" Or InStr(1, valorTomadaPor, "SISTEMA MAESTRO", vbTextCompare) > 0 Then
+                        esVacante = True
+                    End If
                 End If
             End If
         End If
         
         ' Filtro de exclusion por Observacion Direccion de Permanencia (col Z)
         ' Si contiene palabras clave que indican que la plaza no debe cubrirse
+        ' (valorObsPerm ya fue leido arriba)
         If esVacante And colObsPermanencia > 0 Then
-            valorObsPerm = UCase(Trim(LeerCelda(wsOrigen, fila, colObsPermanencia)))
             If InStr(1, valorObsPerm, "NO TOMAR", vbTextCompare) > 0 Or _
                InStr(1, valorObsPerm, "NO CUBRIR", vbTextCompare) > 0 Or _
                InStr(1, valorObsPerm, "NO OFERTAR", vbTextCompare) > 0 Or _
