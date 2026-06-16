@@ -2,6 +2,13 @@ Attribute VB_Name = "ModuloReporteExterno"
 ' ================================================================
 ' MACRO: Reporte de Plazas Vacantes (Archivo Externo)
 ' ================================================================
+' Autor: Juan Felipe Barrera Garcia
+' Rol: Practicante Desarrollo de Software en Talento Humano
+' Entidad: Secretaria de Educacion - Gobernacion de Antioquia
+' Universidad: Institucion Universitaria Pascual Bravo
+' Año: 2026
+' (c) Todos los derechos reservados
+' ================================================================
 ' Este modulo va en un archivo SEPARADO del archivo de Vacantes
 ' Definitivas. Al ejecutar la macro (mediante un boton), se conecta
 ' al archivo fuente en SharePoint (solo lectura, sin modificarlo),
@@ -1127,6 +1134,22 @@ SiguienteFila:
         wsResumen.Cells(filaResumen, 1).Value = "7. Fecha de registro entre " & Format(fechaInicio, "dd/mm/yyyy") & " y " & Format(fechaFin, "dd/mm/yyyy")
         wsResumen.Cells(filaResumen, 1).Font.Color = RGB(0, 0, 180)
     End If
+    
+    ' Informacion de autoria
+    filaResumen = filaResumen + 2
+    wsResumen.Cells(filaResumen, 1).Value = "Desarrollado por:"
+    wsResumen.Cells(filaResumen, 1).Font.Bold = True
+    filaResumen = filaResumen + 1
+    wsResumen.Cells(filaResumen, 1).Value = "Juan Felipe Barrera Garcia"
+    filaResumen = filaResumen + 1
+    wsResumen.Cells(filaResumen, 1).Value = "Practicante Desarrollo de Software en Talento Humano"
+    filaResumen = filaResumen + 1
+    wsResumen.Cells(filaResumen, 1).Value = "Secretar" & ChrW(237) & "a de Educaci" & ChrW(243) & "n - Gobernaci" & ChrW(243) & "n de Antioquia"
+    filaResumen = filaResumen + 1
+    wsResumen.Cells(filaResumen, 1).Value = "Instituci" & ChrW(243) & "n Universitaria Pascual Bravo"
+    filaResumen = filaResumen + 1
+    wsResumen.Cells(filaResumen, 1).Value = ChrW(169) & " 2026 - Todos los derechos reservados"
+    wsResumen.Cells(filaResumen, 1).Font.Italic = True
     
     ' Autoajustar
     wsResumen.Columns("A:B").AutoFit
