@@ -15,6 +15,7 @@ Attribute VB_Name = "ModuloReporteExterno"
 ' inicial y una fecha final. Solo se incluyen las plazas cuya
 ' "Fecha de registro de la vacante definitiva" este dentro del rango.
 ' Si se dejan vacias, se traen TODAS las plazas sin filtro de fecha.
+' FILTRO DE AÑO: Solo se incluyen registros del año 2026.
 '
 ' CRITERIOS DE FILTRADO (tabla verde, columna Y en adelante):
 ' Una plaza se considera VACANTE si cumple CUALQUIERA de estos:
@@ -614,6 +615,7 @@ Public Sub GenerarReportePlazasVacantes()
     Dim esVacante As Boolean
     Dim fechaCelda As Variant
     Dim fechaValida As Boolean
+    Dim fechaTemp As Date
     
     For fila = 2 To ultimaFila
         ' Saltar filas sin numero de plaza
@@ -628,7 +630,28 @@ Public Sub GenerarReportePlazasVacantes()
             End If
         End If
         
-        ' FILTRO DE FECHA: verificar si la fecha esta en el rango
+        ' FILTRO DE AÑO: solo incluir registros del 2026
+        If colFechaRegistro > 0 Then
+            fechaCelda = wsOrigen.Cells(fila, colFechaRegistro).Value
+            If Not IsEmpty(fechaCelda) And Not IsNull(fechaCelda) Then
+                On Error Resume Next
+                fechaTemp = CDate(fechaCelda)
+                If Err.Number = 0 Then
+                    If Year(fechaTemp) <> 2026 Then
+                        Err.Clear
+                        On Error GoTo ErrorHandler
+                        GoTo SiguienteFila
+                    End If
+                End If
+                Err.Clear
+                On Error GoTo ErrorHandler
+            Else
+                ' Si no tiene fecha, excluir tambien
+                GoTo SiguienteFila
+            End If
+        End If
+        
+        ' FILTRO DE FECHA: verificar si la fecha esta en el rango (opcional)
         If usarFiltroFecha And colFechaRegistro > 0 Then
             fechaCelda = wsOrigen.Cells(fila, colFechaRegistro).Value
             fechaValida = False
@@ -1030,10 +1053,12 @@ SiguienteFila:
     wsResumen.Cells(filaResumen, 1).Value = "3. Solo las 9 subregiones oficiales de Antioquia"
     filaResumen = filaResumen + 1
     wsResumen.Cells(filaResumen, 1).Value = "4. Registros con n" & ChrW(250) & "mero de PLAZA v" & ChrW(225) & "lido (no vac" & ChrW(237) & "o ni 0)"
+    filaResumen = filaResumen + 1
+    wsResumen.Cells(filaResumen, 1).Value = "5. Solo registros del a" & ChrW(241) & "o 2026"
     
     If usarFiltroFecha Then
         filaResumen = filaResumen + 1
-        wsResumen.Cells(filaResumen, 1).Value = "5. Fecha de registro entre " & Format(fechaInicio, "dd/mm/yyyy") & " y " & Format(fechaFin, "dd/mm/yyyy")
+        wsResumen.Cells(filaResumen, 1).Value = "6. Fecha de registro entre " & Format(fechaInicio, "dd/mm/yyyy") & " y " & Format(fechaFin, "dd/mm/yyyy")
         wsResumen.Cells(filaResumen, 1).Font.Color = RGB(0, 0, 180)
     End If
     
