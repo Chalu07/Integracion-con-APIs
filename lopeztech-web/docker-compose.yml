@@ -1,0 +1,36 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: lopeztech
+      POSTGRES_USER: lopeztech
+      POSTGRES_PASSWORD: lopeztech123
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lopeztech"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: "postgresql://lopeztech:lopeztech123@db:5432/lopeztech?schema=public"
+      AUTH_SECRET: "${AUTH_SECRET:-change-this-in-production}"
+      AUTH_URL: "http://localhost:3000"
+      ADMIN_EMAIL: "${ADMIN_EMAIL:-admin@lopeztech.dev}"
+      ADMIN_PASSWORD: "${ADMIN_PASSWORD:-admin123}"
+      NEXT_PUBLIC_SITE_URL: "${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:

@@ -1,0 +1,66 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --background: 250 250 248;
+  --foreground: 11 11 9;
+  --card: 240 237 228;
+  --border: 220 215 200;
+  --accent: 140 180 60;
+  --accent-foreground: 11 11 9;
+  --muted-foreground: 120 118 110;
+  --destructive: 220 50 50;
+}
+
+.dark {
+  --background: 11 11 9;
+  --foreground: 244 239 226;
+  --card: 20 20 17;
+  --border: 40 38 32;
+  --accent: 218 254 102;
+  --accent-foreground: 11 11 9;
+  --muted-foreground: 160 155 140;
+  --destructive: 239 68 68;
+}
+
+@theme inline {
+  --color-background: rgb(var(--background));
+  --color-foreground: rgb(var(--foreground));
+  --color-card: rgb(var(--card));
+  --color-border: rgb(var(--border));
+  --color-accent: rgb(var(--accent));
+  --color-accent-foreground: rgb(var(--accent-foreground));
+  --color-muted-foreground: rgb(var(--muted-foreground));
+  --color-destructive: rgb(var(--destructive));
+  --font-sans: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+}
+
+::selection {
+  background-color: rgb(var(--accent) / 0.3);
+  color: rgb(var(--foreground));
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--border)) transparent;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.6s ease-out forwards;
+}
